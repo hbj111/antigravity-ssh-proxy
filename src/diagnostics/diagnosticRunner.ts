@@ -175,9 +175,18 @@ async function checkMgraftcp(): Promise<DiagnosticCheck> {
     try {
         const arch = process.arch === 'x64' ? 'amd64' : 'arm64';
         const binaryName = `mgraftcp-linux-${arch}`;
+        const homeDir = os.homedir();
+        
+        // Check if we're in a misconfigured environment (Windows path on Linux check)
+        if (homeDir.includes(':\\') || homeDir.includes('\\Users\\')) {
+            check.status = 'error';
+            check.message = 'Remote extension not installed on the remote server';
+            check.suggestion = 'Please install "Antigravity SSH Proxy" extension on the remote server: Open Extensions sidebar (Ctrl+Shift+X) → Search "Antigravity SSH Proxy" → Click "Install in SSH: <host>" button.';
+            return check;
+        }
         
         // Search for mgraftcp in extension directories
-        const searchPattern = `${os.homedir()}/.antigravity-server/extensions/*antigravity-ssh-proxy*/resources/bin/${binaryName}`;
+        const searchPattern = `${homeDir}/.antigravity-server/extensions/*antigravity-ssh-proxy*/resources/bin/${binaryName}`;
         const { stdout } = await execAsync(`ls ${searchPattern} 2>/dev/null | head -1`);
         const binaryPath = stdout.trim();
 
@@ -189,12 +198,20 @@ async function checkMgraftcp(): Promise<DiagnosticCheck> {
         } else {
             check.status = 'error';
             check.message = 'mgraftcp binary not found';
-            check.suggestion = 'Reinstall the Antigravity SSH Proxy extension.';
+            check.suggestion = 'Please install "Antigravity SSH Proxy" extension on the remote server: Open Extensions sidebar (Ctrl+Shift+X) → Search "Antigravity SSH Proxy" → Click "Install in SSH: <host>" button.';
         }
     } catch (error) {
-        check.status = 'error';
-        check.message = `Error checking mgraftcp: ${error}`;
-        check.suggestion = 'Ensure the extension is properly installed.';
+        const errorStr = String(error);
+        // Check for Windows path error indicators
+        if (errorStr.includes(':\\') || errorStr.includes('\\Users\\') || errorStr.includes('系统找不到')) {
+            check.status = 'error';
+            check.message = 'Remote extension not installed on the remote server';
+            check.suggestion = 'Please install "Antigravity SSH Proxy" extension on the remote server: Open Extensions sidebar (Ctrl+Shift+X) → Search "Antigravity SSH Proxy" → Click "Install in SSH: <host>" button.';
+        } else {
+            check.status = 'error';
+            check.message = `Error checking mgraftcp: ${error}`;
+            check.suggestion = 'Please install "Antigravity SSH Proxy" extension on the remote server: Open Extensions sidebar (Ctrl+Shift+X) → Search "Antigravity SSH Proxy" → Click "Install in SSH: <host>" button.';
+        }
     }
 
     return check;
@@ -211,6 +228,16 @@ async function checkLanguageServerWrapper(): Promise<DiagnosticCheck> {
     };
 
     try {
+        const homeDir = os.homedir();
+        
+        // Check if we're in a misconfigured environment (Windows path on Linux check)
+        if (homeDir.includes(':\\') || homeDir.includes('\\Users\\')) {
+            check.status = 'error';
+            check.message = 'Remote extension not installed on the remote server';
+            check.suggestion = 'Please install "Antigravity SSH Proxy" extension on the remote server: Open Extensions sidebar (Ctrl+Shift+X) → Search "Antigravity SSH Proxy" → Click "Install in SSH: <host>" button.';
+            return check;
+        }
+        
         const { stdout } = await execAsync(
             `find "$HOME/.antigravity-server/bin" -path "*/extensions/antigravity/bin/language_server_linux_*" -type f 2>/dev/null | grep -v ".bak$" | head -1`
         );
@@ -234,9 +261,17 @@ async function checkLanguageServerWrapper(): Promise<DiagnosticCheck> {
             check.suggestion = 'Run "Setup Remote Environment" command to configure the wrapper.';
         }
     } catch (error) {
-        check.status = 'warning';
-        check.message = `Could not verify wrapper: ${error}`;
-        check.suggestion = 'Run "Setup Remote Environment" command if language server proxy is needed.';
+        const errorStr = String(error);
+        // Check for Windows path error indicators
+        if (errorStr.includes(':\\') || errorStr.includes('\\Users\\') || errorStr.includes('系统找不到')) {
+            check.status = 'error';
+            check.message = 'Remote extension not installed on the remote server';
+            check.suggestion = 'Please install "Antigravity SSH Proxy" extension on the remote server: Open Extensions sidebar (Ctrl+Shift+X) → Search "Antigravity SSH Proxy" → Click "Install in SSH: <host>" button.';
+        } else {
+            check.status = 'warning';
+            check.message = `Could not verify wrapper: ${error}`;
+            check.suggestion = 'Run "Setup Remote Environment" command if language server proxy is needed.';
+        }
     }
 
     return check;
