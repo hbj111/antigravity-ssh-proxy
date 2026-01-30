@@ -440,12 +440,48 @@ async function activateRemote(context: vscode.ExtensionContext) {
 }
 
 /**
- * Show startup status notification
+ * Show startup status notification with detailed diagnostics in output channel
  */
 async function showStartupStatus(proxyHost: string, proxyPort: number): Promise<void> {
 	try {
+		log('');
+		log('========== Startup Status Check ==========');
+		log(`Proxy endpoint: ${proxyHost}:${proxyPort}`);
+		log('');
+
+		// Test 1: Port connectivity
+		log(`[Test 1] Checking port connectivity...`);
+		log(`  Command: nc -zv ${proxyHost} ${proxyPort}`);
 		const proxyReachable = await checkPortAvailable(proxyHost, proxyPort);
+		log(`  Result: ${proxyReachable ? '✓ Port is reachable' : '✗ Port is NOT reachable'}`);
+		log('');
+
+		// Test 2: mgraftcp process
+		log(`[Test 2] Checking if mgraftcp is running...`);
+		log(`  Command: pgrep -f mgraftcp`);
 		const proxyActive = await isMgraftcpRunning();
+		log(`  Result: ${proxyActive ? '✓ mgraftcp is running (proxy active)' : '✗ mgraftcp is NOT running'}`);
+		log('');
+
+		// Test 3: External connectivity (only if port is reachable)
+		if (proxyReachable) {
+			log(`[Test 3] Testing external connectivity...`);
+			log(`  Command: curl -x socks5h://${proxyHost}:${proxyPort} https://www.google.com -s -o /dev/null -w "%{http_code}" --connect-timeout 10`);
+			try {
+				const { stdout } = await execAsync(
+					`curl -x socks5h://${proxyHost}:${proxyPort} https://www.google.com -s -o /dev/null -w "%{http_code}" --connect-timeout 10`,
+					{ timeout: 15000 }
+				);
+				const httpCode = stdout.trim();
+				log(`  Result: HTTP ${httpCode} ${httpCode === '200' || httpCode === '301' || httpCode === '302' ? '✓ OK' : '✗ Failed'}`);
+			} catch (error) {
+				log(`  Result: ✗ Failed - ${error}`);
+			}
+			log('');
+		}
+
+		log('==========================================');
+		log('');
 
 		let message: string;
 		let actions: string[] = [];

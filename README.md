@@ -20,6 +20,17 @@ Proxy interface for Antigravity. ATP bypasses server firewalls by securely routi
 
 ---
 
+## ⚠️ Important: Dual Installation Required
+
+This extension must be installed on **BOTH** your local machine and remote server:
+
+| Location | Role |
+|----------|------|
+| **Local** | Manages SSH port forwarding (`~/.ssh/config.antigravity`) |
+| **Remote** | Configures Language Server proxy wrapper (mgraftcp) |
+
+---
+
 ## Features
 
 - **Automated Proxy Setup**: Deploys `mgraftcp` and configures proxies automatically.
@@ -28,11 +39,11 @@ Proxy interface for Antigravity. ATP bypasses server firewalls by securely routi
 
 ## Quick Start
 
-1. Install the **Antigravity SSH Proxy** extension on your local Antigravity.
-2. Connect to your remote Linux server using Antigravity Remote - SSH.
-3. Install the extension again **on the remote server** (found in the Extensions view under the SSH section).
-4. Execute the **Developer: Reload Window** command (or restart Antigravity) to ensure all services are properly initialized.
-5. Configure your `localProxyPort` in settings (e.g., 7890) to match your local proxy service.
+1. **Install locally**: Install the **Antigravity SSH Proxy** extension on your local Antigravity.
+2. **Connect**: Connect to your remote Linux server using Antigravity Remote - SSH.
+3. **Install remotely**: Install the extension again **on the remote server** (found in the Extensions view under the SSH section).
+4. **Reload**: Execute the **Developer: Reload Window** command (or restart Antigravity) to ensure all services are properly initialized.
+5. **Configure**: Set your `localProxyPort` in settings (e.g., 7890) to match your local proxy service.
 
 ## Extension Settings
 
@@ -42,6 +53,11 @@ Proxy interface for Antigravity. ATP bypasses server firewalls by securely routi
 | `localProxyPort` | Local proxy port on your computer. |
 | `remoteProxyHost` | Proxy host address on the remote server. |
 | `remoteProxyPort` | Proxy port on the remote server. |
+| `showStatusOnStartup` | Show status notification when connecting to remote server. |
+
+## Uninstall
+
+Before uninstalling, run the **Antigravity SSH Proxy: Rollback Remote Environment** command to restore the original Language Server.
 
 ## Requirements
 

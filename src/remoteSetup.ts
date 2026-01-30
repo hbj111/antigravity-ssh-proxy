@@ -23,10 +23,10 @@ BAKS=$(find "$HOME/.antigravity-server" -path "*/extensions/antigravity/bin/*" -
 RESTORED=0
 while IFS= read -r BAK; do
     [ -z "$BAK" ] && continue
-    TARGET="\${BAK%.bak}"
+TARGET="\${BAK%.bak}"
     echo "Restoring: $TARGET"
-    [ -f "$TARGET" ] && rm -f "$TARGET"
-    mv "$BAK" "$TARGET"
+[ -f "$TARGET" ] && rm -f "$TARGET"
+mv "$BAK" "$TARGET"
     RESTORED=$((RESTORED + 1))
 done <<< "$BAKS"
 

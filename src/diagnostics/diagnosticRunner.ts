@@ -260,15 +260,15 @@ async function checkExternalConnectivity(remoteProxyHost: string, remoteProxyPor
     const proxyProtocols = ['socks5h', 'http', 'socks5'];
     
     for (const protocol of proxyProtocols) {
-        try {
-            const { stdout } = await execAsync(
+    try {
+        const { stdout } = await execAsync(
                 `curl -x ${protocol}://${remoteProxyHost}:${remoteProxyPort} https://www.google.com -o /dev/null -s -w "%{http_code}" --connect-timeout 10`,
-                { timeout: 15000 }
-            );
-            const httpCode = stdout.trim();
+            { timeout: 15000 }
+        );
+        const httpCode = stdout.trim();
 
-            if (httpCode === '200' || httpCode === '301' || httpCode === '302') {
-                check.status = 'success';
+        if (httpCode === '200' || httpCode === '301' || httpCode === '302') {
+            check.status = 'success';
                 check.message = `External connectivity OK via ${protocol} (HTTP ${httpCode})`;
                 return check;
             }
@@ -279,7 +279,7 @@ async function checkExternalConnectivity(remoteProxyHost: string, remoteProxyPor
     }
 
     // All protocols failed
-    check.status = 'error';
+            check.status = 'error';
     check.message = 'Cannot connect to external network via any proxy protocol';
     check.suggestion = 'Check if the proxy is properly forwarding traffic. Verify your local proxy has internet access and supports SOCKS5 or HTTP proxy.';
 
