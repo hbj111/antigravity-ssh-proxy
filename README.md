@@ -14,7 +14,7 @@
 
 Proxy interface for Antigravity. ATP bypasses server firewalls by securely routing remote traffic through local or designated gateways.
 
-> **Note:** This version only supports **Linux remote servers**.
+> **Note:** **Current version** only supports **Linux remote servers (x86_64)**. ARM based servers are **NOT** yet supported.
 
 > This project is a fork of [wang-muhan/antigravity-interface](https://github.com/wang-muhan/antigravity-interface). Thanks to the original author for the excellent work!
 
@@ -63,5 +63,5 @@ Before uninstalling, run the **Antigravity SSH Proxy: Rollback Remote Environmen
 ## Requirements
 
 - SSH access to the remote server.
-- Linux remote server (x86_64 or arm64).
+- Linux remote server (Currently x86_64 only).
 - A local proxy running on your computer (e.g., Clash, V2Ray).
