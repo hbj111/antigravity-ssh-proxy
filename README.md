@@ -5,7 +5,7 @@
 
 **English** · [简体中文](README.zh-CN.md)
 
-[![Version](https://img.shields.io/visual-studio-marketplace/v/dinobot22.antigravity-ssh-proxy)](https://marketplace.visualstudio.com/items?itemName=dinobot22.antigravity-ssh-proxy)
+[![Version](https://img.shields.io/open-vsx/v/dinobot22/antigravity-ssh-proxy)](https://open-vsx.org/extension/dinobot22/antigravity-ssh-proxy)
 [![GitHub stars](https://img.shields.io/github/stars/dinobot22/antigravity-ssh-proxy)](https://github.com/dinobot22/antigravity-ssh-proxy)
 [![GitHub issues](https://img.shields.io/github/issues/dinobot22/antigravity-ssh-proxy)](https://github.com/dinobot22/antigravity-ssh-proxy/issues)
 [![License](https://img.shields.io/github/license/dinobot22/antigravity-ssh-proxy)](https://github.com/dinobot22/antigravity-ssh-proxy/blob/main/LICENSE)
