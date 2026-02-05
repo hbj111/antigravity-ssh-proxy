@@ -861,6 +861,7 @@ export class StatusManager {
             position: relative;
             width: 32px;
             height: 16px;
+            flex: none;
         }
         
         .toggle input {
