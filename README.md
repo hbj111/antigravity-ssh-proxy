@@ -55,32 +55,56 @@
 
 **Step 1 — 本地安装与配置**
 
-1. 在本地 Antigravity 中搜索并安装 **Antigravity SSH Proxy** 插件
-2. 点击左下角 **ATP 面板**，配置 `localProxyPort` 为您本地代理端口（如 `7890`）
-3. 检查面板状态，确认本地配置无异常
+1. 打开一个本地的 Antigravity项目并在扩展中搜索并安装 **Antigravity SSH Proxy** 插件(目前安装量比较小,可能需要按名称排序才能找到)
+2. 安装成功后点击左下角 **ATP 面板**，配置 `localProxyPort` 为您本地代理端口（如 `7890`）
+3. 检查面板状态，确认本地配置无异常. 
 
 **Step 2 — 远程安装**
 
-1. 使用 Antigravity SSH 连接到远程 Linux 服务器
+1. 使用 Antigravity SSH 连接到远程 Linux 服务器. PS: 步骤一启动的本地Antigravity窗口,尽量不要关闭
 2. 在插件视图的 **"SSH: [服务器名]"** 分类下，再次安装本插件
 
 **Step 3 — 激活并验证**
 
-1. 按照提示执行 **Reload Window** 重启窗口
+1. 按照提示执行 **Reload Window** 重启窗口. PS: 由于远程的需要对language server进行wrapper, 插件有的时候会提示您**多次**重启远程窗口,**按提示重启**. 本地的Antigravity窗口一般不需要重启)
 2. 打开右下角 **ATP 面板**，运行 **连接诊断** 检查代理状态
 3. 显示正常后，远程 AI 功能即可使用 🎉
+   
+**Step 4 — 简单重试**
+
+如果发现功能不能正常使用时:
+1. 关闭所有的(本地+远程)Antigravity窗口
+2. 先打开本地的Antigravity窗口,等待本地插件启动完成(左下角ATP变绿),
+3. 再点击左边的SSH链接远程服务器进行重试, 连接远程终端时一般有两个选项
+> 1. 在当前窗口链接远程服务(connect SSH host in current window)
+> 2. 打开新窗口链接远程服务(connect SSH host in new window) **<-- 选择这个**
+
+进行重试,查看是否可行
+   
+**当系统提示需要重启窗口时，请重启以确保功能正常使用**
 
 ---
 
+
 ### 故障排查
 
-如果配置后仍无法正常使用，请检查以下日志：
+如果配置+重试后仍无法正常使用，提交Bug日志时请附带一下远程链接服务器的日志信息：
+> 1.  ATP页面中运行诊断, 复制诊断结果
+> 2.  Antigravity的Output 面板内容中的
+>    
+> | 日志频道 | 查看路径 |
+> |---------|---------| 
+> | `Antigravity` | Output 面板 → Antigravity |
+> | `Antigravity SSH Proxy` | Output 面板 → Antigravity SSH Proxy |
 
-| 日志频道 | 查看路径 |
-|---------|---------|
-| `Antigravity` | Output 面板 → Antigravity |
-| `Antigravity SSH Proxy` | Output 面板 → Antigravity SSH Proxy |
-
+> 4. 一些额外的系统信息
+> ```bash
+>    uname -a                          # 内核版本
+>    uname -m                          # 架构 (x86_64/aarch64)
+>    ps -aux |grep language_server     # 查看实际启动的language_server
+>    cat /proc/sys/kernel/yama/ptrace_scope  # Ptrace 权限信息
+>    ls -la /.dockerenv                # 是否在 Docker 中
+>```
 
 ## 扩展设置
 
