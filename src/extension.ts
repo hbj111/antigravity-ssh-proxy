@@ -446,40 +446,58 @@ async function activateRemote(context: vscode.ExtensionContext) {
 }
 
 /**
- * Show detailed warning when SSH tunnel is not established
- * This typically happens when user connects directly to remote via Antigravity's memory feature
+ * Show detailed warning when proxy is not reachable on the remote side.
+ * Covers three possible causes: SSH tunnel not established, port mismatch, local proxy not running.
  */
 async function showSSHTunnelNotEstablishedWarning(proxyHost: string, proxyPort: number): Promise<void> {
-	const detailMessage = 
-		`SSH tunnel not established!\n\n` +
-		`The proxy at ${proxyHost}:${proxyPort} is not reachable. This usually happens when you connect directly to the remote server (e.g., via Antigravity's recent connections) without opening a local window first.\n\n` +
-		`To fix this:\n` +
-		`1. Close this remote connection\n` +
-		`2. Open a new local window (File > New Window)\n` +
-		`3. Then connect to the remote server\n\n` +
-		`This ensures the SSH tunnel is properly configured before connecting.`;
+	const detailMessage =
+		`Proxy not reachable at ${proxyHost}:${proxyPort}\n\n` +
+		`This can happen for several reasons. Please check each one:\n\n` +
+		`─── Cause 1: SSH tunnel not established ───\n` +
+		`You may have connected directly via Antigravity's "Recent Connections"\n` +
+		`without opening a local window first.\n` +
+		`Fix:\n` +
+		`  1. Close this remote connection\n` +
+		`  2. Open a new local window (File > New Window)\n` +
+		`  3. Connect to the remote server from the local window\n\n` +
+		`─── Cause 2: Port mismatch ───\n` +
+		`The "Remote Port" in the Local ATP panel must equal\n` +
+		`the "Proxy Port" in the Remote ATP panel.\n` +
+		`Fix:\n` +
+		`  1. Open the ATP panel (click the status bar item)\n` +
+		`  2. In the Local window: note the "Remote Port" value\n` +
+		`  3. In the Remote window: set "Proxy Port" to the same value\n` +
+		`  4. Save and reconnect\n\n` +
+		`─── Cause 3: Local proxy software not running ───\n` +
+		`The local proxy (e.g., Clash, V2Ray) may not be started,\n` +
+		`or its port does not match the "Local Port" in the ATP panel.\n` +
+		`Fix:\n` +
+		`  1. Start your local proxy software\n` +
+		`  2. Open the ATP panel and confirm "Local Port" matches your proxy's port\n` +
+		`  3. Save and reconnect`;
 
-	log('Showing SSH tunnel warning dialog');
-	
+	log('Showing proxy not reachable warning dialog');
+
 	const selection = await vscode.window.showWarningMessage(
 		detailMessage,
 		{ modal: true },
-		'Close Remote & Show Guide',
+		'Open ATP Panel',
 		'Run Diagnostics',
+		'Close Remote Connection',
 		'Dismiss'
 	);
 
-	if (selection === 'Close Remote & Show Guide') {
-		// Show a quick guide before closing
-		vscode.window.showInformationMessage(
-			'After closing, please: 1) Open a new local window  2) Connect to remote from there',
-			'Got it'
-		).then(() => {
-			// Close remote connection
-			vscode.commands.executeCommand('workbench.action.remote.close');
-		});
+	if (selection === 'Open ATP Panel') {
+		vscode.commands.executeCommand('antigravity-ssh-proxy.showStatusPanel');
 	} else if (selection === 'Run Diagnostics') {
 		vscode.commands.executeCommand('antigravity-ssh-proxy.diagnose');
+	} else if (selection === 'Close Remote Connection') {
+		vscode.window.showInformationMessage(
+			'After closing: 1) Open a new local window  2) Connect to remote from there',
+			'Got it'
+		).then(() => {
+			vscode.commands.executeCommand('workbench.action.remote.close');
+		});
 	}
 }
 
@@ -511,7 +529,7 @@ async function showStartupStatus(proxyHost: string, proxyPort: number): Promise<
 		if (proxyReachable) {
 			const config = vscode.workspace.getConfiguration('antigravity-ssh-proxy');
 			const currentProxyType = config.get<string>('proxyType', 'http');
-			
+
 			// Test HTTP proxy
 			log(`[Test 3] Testing HTTP proxy connectivity...`);
 			const httpCmd = `curl -x http://${proxyHost}:${proxyPort} https://www.google.com -s -o /dev/null -w "%{http_code}" --connect-timeout 10`;
@@ -579,7 +597,7 @@ async function showStartupStatus(proxyHost: string, proxyPort: number): Promise<
 			// This can happen when user directly connects to remote via Antigravity's memory feature
 			log('Proxy not reachable - SSH tunnel may not be established');
 			log('This can happen when connecting directly to remote without opening a local window first');
-			
+
 			// Show a detailed warning with explanation
 			await showSSHTunnelNotEstablishedWarning(proxyHost, proxyPort);
 			return;
@@ -647,7 +665,7 @@ async function runSetupScriptSilently(proxyHost: string, proxyPort: number, prox
 		log(`Setup output: ${output}`);
 
 		// Check if this is a new configuration
-		const isNewConfig = output.includes('Setup complete') || 
+		const isNewConfig = output.includes('Setup complete') ||
 			(output.includes('configured') && !output.includes('Already configured'));
 
 		if (isNewConfig) {
@@ -659,7 +677,7 @@ async function runSetupScriptSilently(proxyHost: string, proxyPort: number, prox
 			return true;
 		} else if (output.includes('Already configured')) {
 			log('Setup: Already configured');
-			
+
 			// Check if Language Server is actually using the proxy
 			const proxyActive = await isMgraftcpRunning();
 			if (!proxyActive) {
