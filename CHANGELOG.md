@@ -2,6 +2,29 @@
 
 All notable changes to the "Antigravity SSH Proxy" extension will be documented in this file.
 
+## [0.0.14] - 2026-02-26
+
+### Fixed
+
+- **Antigravity 1.19+ Compatibility**: Fixed proxy not working when Language Server runs in `persistent_mode`. 
+  - Antigravity 1.19+ introduced `--persistent_mode` which keeps the LS running across window reloads
+  - If LS started before wrapper was configured, it would not use proxy even after reload
+  - Now automatically detects this scenario and kills the LS process to force restart through wrapper
+
+### Added
+
+- **Language Server Process Diagnostic**: New diagnostic check "Language Server Process" that shows:
+  - Whether LS is running
+  - Whether it's in persistent mode
+  - Whether it's actually using proxy
+  - Provides specific fix instructions when the bug scenario is detected
+- **Startup Log Enhancement**: Added `[Test 2.5]` in startup status check to display LS process status with persistent_mode detection
+
+### Improved
+
+- **Smarter Proxy Detection**: Now uses `getLanguageServerProcess().isUsingProxy` as the authoritative check instead of just `isMgraftcpRunning()`, which could be fooled by stale processes
+- **Auto-fix for Persistent Mode Bug**: When detecting LS in persistent_mode but not using proxy, automatically kills LS and prompts reload
+
 ## [0.0.13] - 2026-02-23
 
 ### Improved
