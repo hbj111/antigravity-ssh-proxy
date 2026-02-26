@@ -52,6 +52,87 @@ async function isMgraftcpRunning(): Promise<boolean> {
 }
 
 /**
+ * Get Language Server process info
+ * Returns PID and whether it's running in persistent mode
+ * 
+ * When LS runs through mgraftcp, ps shows two processes:
+ * 1. mgraftcp process (parent, contains "language_server_linux" as argument)
+ * 2. actual language_server process (child, the .bak binary)
+ * 
+ * We need to find the actual LS process and determine if it was started via mgraftcp
+ */
+async function getLanguageServerProcess(): Promise<{ pid: number; isPersistent: boolean; isUsingProxy: boolean } | null> {
+	try {
+		const { stdout } = await execAsync('ps aux | grep language_server_linux | grep -v grep');
+		const lines = stdout.trim().split('\n').filter(l => l.length > 0);
+		
+		// First pass: check if mgraftcp is wrapping the LS (indicates proxy is active)
+		const hasMgraftcpWrapper = lines.some(line => line.includes('mgraftcp'));
+		
+		// Second pass: find the actual LS process (not the mgraftcp line)
+		for (const line of lines) {
+			// Skip the mgraftcp wrapper line, we want the actual LS binary
+			if (line.includes('mgraftcp-fakedns')) {
+				continue;
+			}
+			
+			// Look for the actual language_server process (either direct or .bak)
+			if (line.includes('language_server_linux')) {
+				const parts = line.split(/\s+/);
+				if (parts.length >= 2) {
+					const pid = parseInt(parts[1]);
+					const isPersistent = line.includes('--persistent_mode') || line.includes('persistent_mode');
+					
+					if (!isNaN(pid)) {
+						return { 
+							pid, 
+							isPersistent, 
+							isUsingProxy: hasMgraftcpWrapper 
+						};
+					}
+				}
+			}
+		}
+	} catch {
+		// No process found
+	}
+	return null;
+}
+
+/**
+ * Kill Language Server process to force restart through wrapper
+ * This is needed when LS is running in persistent_mode and was started before wrapper was configured
+ */
+async function killLanguageServer(): Promise<boolean> {
+	const lsProcess = await getLanguageServerProcess();
+	if (!lsProcess) {
+		log('No Language Server process found to kill');
+		return false;
+	}
+	
+	try {
+		log(`Killing Language Server process (PID: ${lsProcess.pid}, persistent: ${lsProcess.isPersistent})`);
+		await execAsync(`kill ${lsProcess.pid}`);
+		
+		// Wait a bit for process to terminate
+		await new Promise(resolve => setTimeout(resolve, 1000));
+		
+		// Verify it's gone
+		const stillRunning = await getLanguageServerProcess();
+		if (stillRunning && stillRunning.pid === lsProcess.pid) {
+			log('Process still running, using SIGKILL');
+			await execAsync(`kill -9 ${lsProcess.pid}`);
+		}
+		
+		log('Language Server process killed successfully');
+		return true;
+	} catch (error) {
+		log(`Failed to kill Language Server: ${error}`);
+		return false;
+	}
+}
+
+/**
  * Show reload window prompt with optional auto-reload after timeout
  */
 function promptReloadWindow(message: string): void {
@@ -525,6 +606,25 @@ async function showStartupStatus(proxyHost: string, proxyPort: number): Promise<
 		log(`  Result: ${proxyActive ? '✓ mgraftcp is running (proxy active)' : '✗ mgraftcp is NOT running'}`);
 		log('');
 
+		// Test 2.5: Language Server process status (always check for diagnostic purposes)
+		log(`[Test 2.5] Checking Language Server process status...`);
+		const lsProcess = await getLanguageServerProcess();
+		if (lsProcess) {
+			const modeLabel = lsProcess.isPersistent ? 'persistent mode' : 'normal mode';
+			const proxyLabel = lsProcess.isUsingProxy ? 'using proxy' : 'NOT using proxy';
+			const statusIcon = lsProcess.isUsingProxy ? '✓' : (lsProcess.isPersistent ? '✗' : '⚠');
+			log(`  Result: ${statusIcon} Language Server (PID ${lsProcess.pid}) is running in ${modeLabel}, ${proxyLabel}`);
+			
+			if (lsProcess.isPersistent && !lsProcess.isUsingProxy) {
+				log(`  ⚠️ WARNING: LS is in persistent_mode but not using proxy!`);
+				log(`    This is the bug scenario where LS was started before wrapper was configured.`);
+				log(`    Will auto-fix by killing LS process...`);
+			}
+		} else {
+			log(`  Result: ○ Language Server is not running (will start on demand)`);
+		}
+		log('');
+
 		// Test 3: External connectivity (only if port is reachable)
 		if (proxyReachable) {
 			const config = vscode.workspace.getConfiguration('antigravity-ssh-proxy');
@@ -585,13 +685,46 @@ async function showStartupStatus(proxyHost: string, proxyPort: number): Promise<
 		let message: string;
 		let actions: string[] = [];
 
-		if (proxyReachable && proxyActive) {
-			// Everything is working
+		// Check LS process status - this is the authoritative check for whether proxy is actually working
+		// Note: proxyActive (isMgraftcpRunning) might be true due to stale processes,
+		// but lsProcess.isUsingProxy tells us if the CURRENT LS is actually using proxy
+		const lsProcessForDecision = await getLanguageServerProcess();
+		const lsActuallyUsingProxy = lsProcessForDecision?.isUsingProxy ?? false;
+		const lsIsPersistent = lsProcessForDecision?.isPersistent ?? false;
+		const lsNeedsRestart = lsProcessForDecision && lsIsPersistent && !lsActuallyUsingProxy;
+
+		if (proxyReachable && lsActuallyUsingProxy) {
+			// Everything is actually working - LS is using proxy
 			message = `✅ Proxy active (${proxyHost}:${proxyPort})`;
+		} else if (proxyReachable && lsNeedsRestart) {
+			// LS is in persistent mode but not using proxy - this is the bug scenario
+			// Auto-fix by killing LS
+			log('Startup: Detected persistent_mode LS not using proxy, auto-fixing...');
+			
+			const killed = await killLanguageServer();
+			if (killed) {
+				message = `🔄 Language Server restarted to enable proxy. Reloading...`;
+				actions = ['Reload Now'];
+				
+				// Auto-reload after a short delay
+				setTimeout(() => {
+					vscode.commands.executeCommand('workbench.action.reloadWindow');
+				}, 2000);
+			} else {
+				message = `⚠️ Proxy configured but Language Server needs manual restart.`;
+				actions = ['Kill & Reload', 'Dismiss'];
+			}
 		} else if (proxyReachable && !proxyActive) {
-			// Proxy is reachable but not active - need reload
-			message = `⚠️ Proxy configured but not active. Reload to enable.`;
-			actions = ['Reload Now', 'Dismiss'];
+			// Proxy is reachable, mgraftcp not running, LS might not be started yet or needs reload
+			if (lsProcessForDecision && !lsActuallyUsingProxy) {
+				// LS is running but not using proxy (non-persistent mode)
+				message = `⚠️ Proxy configured but not active. Reload to enable.`;
+				actions = ['Reload Now', 'Dismiss'];
+			} else {
+				// LS not running yet, or other state
+				message = `⚠️ Proxy configured but not active. Reload to enable.`;
+				actions = ['Reload Now', 'Dismiss'];
+			}
 		} else if (!proxyReachable) {
 			// Proxy not reachable - likely SSH tunnel not established
 			// This can happen when user directly connects to remote via Antigravity's memory feature
@@ -612,6 +745,12 @@ async function showStartupStatus(proxyHost: string, proxyPort: number): Promise<
 			const selection = await vscode.window.showInformationMessage(message, ...actions);
 			if (selection === 'Reload Now') {
 				vscode.commands.executeCommand('workbench.action.reloadWindow');
+			} else if (selection === 'Kill & Reload') {
+				// Kill LS and reload
+				await killLanguageServer();
+				setTimeout(() => {
+					vscode.commands.executeCommand('workbench.action.reloadWindow');
+				}, 1000);
 			} else if (selection === 'Run Diagnostics') {
 				vscode.commands.executeCommand('antigravity-ssh-proxy.diagnose');
 			} else if (selection === 'Close Remote') {
@@ -679,15 +818,49 @@ async function runSetupScriptSilently(proxyHost: string, proxyPort: number, prox
 			log('Setup: Already configured');
 
 			// Check if Language Server is actually using the proxy
-			const proxyActive = await isMgraftcpRunning();
-			if (!proxyActive) {
+			// Use getLanguageServerProcess() as the authoritative check, not just isMgraftcpRunning()
+			// because there might be stale mgraftcp processes
+			const lsProcess = await getLanguageServerProcess();
+			const lsActuallyUsingProxy = lsProcess?.isUsingProxy ?? false;
+			const lsIsPersistent = lsProcess?.isPersistent ?? false;
+			
+			if (lsProcess && !lsActuallyUsingProxy) {
 				// Wrapper is configured but LS isn't using proxy (started before wrapper was set up)
-				log('Setup: Proxy configured but not active, prompting reload');
-				promptReloadWindow(
-					'Proxy is configured but not active. Reload window to enable proxy for the language server.'
-				);
-			} else {
+				log('Setup: Proxy configured but LS not using it');
+				
+				if (lsIsPersistent) {
+					// Persistent mode: LS won't restart on reload, need to kill it first
+					log('Setup: Language Server is in persistent_mode, killing process to force restart through wrapper');
+					
+					const killed = await killLanguageServer();
+					if (killed) {
+						promptReloadWindow(
+							'Language Server was restarted to enable proxy. Please reload the window to reconnect.'
+						);
+					} else {
+						// Fallback to manual instructions
+						vscode.window.showWarningMessage(
+							'Proxy configured but Language Server needs restart. ' +
+							'Run in terminal: kill $(pgrep -f language_server_linux) && then reload window.',
+							'Reload Now'
+						).then(selection => {
+							if (selection === 'Reload Now') {
+								vscode.commands.executeCommand('workbench.action.reloadWindow');
+							}
+						});
+					}
+				} else {
+					// Non-persistent mode: regular reload should work
+					log('Setup: Prompting reload');
+					promptReloadWindow(
+						'Proxy is configured but not active. Reload window to enable proxy for the language server.'
+					);
+				}
+			} else if (lsActuallyUsingProxy) {
 				log('Setup: Proxy is active, no reload needed');
+			} else {
+				// LS not running yet - this is fine, it will start with proxy when needed
+				log('Setup: LS not running, will use proxy when started');
 			}
 			return true;
 		}

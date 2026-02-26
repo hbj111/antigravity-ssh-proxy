@@ -352,6 +352,78 @@ async function checkLanguageServerWrapper(extensionPath?: string): Promise<Diagn
 }
 
 /**
+ * Check Language Server process status
+ * Detects if LS is running, in persistent mode, and using proxy
+ */
+async function checkLanguageServerProcess(): Promise<DiagnosticCheck> {
+    const check: DiagnosticCheck = {
+        id: 'ls-process',
+        name: 'Language Server Process',
+        status: 'running'
+    };
+
+    try {
+        const { stdout } = await execAsync('ps aux | grep language_server_linux | grep -v grep');
+        const lines = stdout.trim().split('\n').filter(l => l.length > 0);
+
+        if (lines.length === 0) {
+            check.status = 'warning';
+            check.message = 'Language Server is not running';
+            check.suggestion = 'This may be normal if you haven\'t used any AI features yet. The LS starts on demand.';
+            return check;
+        }
+
+        // Check if mgraftcp is wrapping the LS
+        const hasMgraftcpWrapper = lines.some(line => line.includes('mgraftcp'));
+        
+        // Find the actual LS process
+        let isPersistent = false;
+        let lsPid = 0;
+        
+        for (const line of lines) {
+            if (line.includes('mgraftcp-fakedns')) {
+                continue; // Skip the wrapper process line
+            }
+            if (line.includes('language_server_linux')) {
+                const parts = line.split(/\s+/);
+                if (parts.length >= 2) {
+                    lsPid = parseInt(parts[1]);
+                    isPersistent = line.includes('--persistent_mode') || line.includes('persistent_mode');
+                }
+            }
+        }
+
+        // Build status message
+        const modeLabel = isPersistent ? 'persistent mode' : 'normal mode';
+        const proxyLabel = hasMgraftcpWrapper ? 'using proxy' : 'NOT using proxy';
+        
+        if (hasMgraftcpWrapper) {
+            check.status = 'success';
+            check.message = `Language Server (PID ${lsPid}) is running in ${modeLabel}, ${proxyLabel}`;
+        } else if (isPersistent) {
+            // Persistent mode but not using proxy - this is the bug scenario
+            check.status = 'error';
+            check.message = `Language Server (PID ${lsPid}) is running in ${modeLabel}, but ${proxyLabel}`;
+            check.suggestion = 'The LS was started before the proxy wrapper was configured. ' +
+                'Kill the LS process and reload: Run "kill ' + lsPid + '" in terminal, then reload window.';
+        } else {
+            // Non-persistent mode, not using proxy
+            check.status = 'warning';
+            check.message = `Language Server (PID ${lsPid}) is running in ${modeLabel}, ${proxyLabel}`;
+            check.suggestion = 'Reload the window to restart LS with proxy support.';
+        }
+
+    } catch {
+        // grep returns non-zero if no match
+        check.status = 'warning';
+        check.message = 'Language Server is not running';
+        check.suggestion = 'This may be normal if you haven\'t used any AI features yet.';
+    }
+
+    return check;
+}
+
+/**
  * Check external connectivity through proxy
  * Tests both HTTP and SOCKS5 protocols and reports availability of each
  */
@@ -442,6 +514,7 @@ export async function runDiagnostics(onProgress?: ProgressCallback, extensionPat
         { id: 'remote-forward', name: 'Remote Port Forwarding', status: 'pending' },
         { id: 'mgraftcp', name: 'mgraftcp-fakedns Binary', status: 'pending' },
         { id: 'ls-wrapper', name: 'Language Server Wrapper', status: 'pending' },
+        { id: 'ls-process', name: 'Language Server Process', status: 'pending' },
         { id: 'external-connectivity', name: 'External Connectivity', status: 'pending' }
     ];
 
@@ -462,7 +535,7 @@ export async function runDiagnostics(onProgress?: ProgressCallback, extensionPat
         updateCheck(1, await checkSSHConfig(remoteProxyPort));
 
         // Skip remote-only checks
-        for (let i = 2; i < 6; i++) {
+        for (let i = 2; i < 7; i++) {
             checks[i].status = 'warning';
             checks[i].message = 'Skipped (remote-only check)';
         }
@@ -490,7 +563,11 @@ export async function runDiagnostics(onProgress?: ProgressCallback, extensionPat
 
         checks[5].status = 'running';
         onProgress?.(checks);
-        updateCheck(5, await checkExternalConnectivity(remoteProxyHost, remoteProxyPort, proxyType));
+        updateCheck(5, await checkLanguageServerProcess());
+
+        checks[6].status = 'running';
+        onProgress?.(checks);
+        updateCheck(6, await checkExternalConnectivity(remoteProxyHost, remoteProxyPort, proxyType));
     }
 
     // Determine overall status
