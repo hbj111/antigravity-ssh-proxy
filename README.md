@@ -104,6 +104,7 @@
 >    cat /proc/sys/kernel/yama/ptrace_scope  # Ptrace 权限信息
 >    ls -la /.dockerenv                # 是否在 Docker 中
 >    lscpu | grep -i aes               # 查看cpu情况
+>    ps -aux | grep language_server
 >```
 
 ## 扩展设置
