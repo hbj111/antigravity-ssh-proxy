@@ -317,8 +317,17 @@ async function checkLanguageServerWrapper(extensionPath?: string): Promise<Diagn
             return check;
         }
 
-        // Architecture check: RK3588 (aarch64) usually runs arm64, but if it found language_server_linux_arm, it's 32-bit
-        const isArm32 = targetPath.endsWith('_arm');
+        // Architecture check: RK3588 (aarch64) usually runs arm64.
+        // On some systems, the 64-bit binary is named language_server_linux_arm but is actually 64-bit.
+        let isActually64Bit = false;
+        try {
+            const { stdout: fileOutput } = await execAsync(`file -b "${targetPath}"`);
+            isActually64Bit = fileOutput.includes('aarch64') || fileOutput.includes('x86-64');
+        } catch {
+            // If 'file' command is missing, fallback to name-based check
+        }
+
+        const isArm32 = targetPath.endsWith('_arm') && !isActually64Bit;
         const isSystem64 = os.arch() === 'arm64' || os.arch() === 'aarch64';
         
         // Check if it's a wrapper script
@@ -352,6 +361,8 @@ async function checkLanguageServerWrapper(extensionPath?: string): Promise<Diagn
                 check.status = 'warning';
                 check.message += ' - ⚠️ Architecture mismatch detected: 32-bit LS on 64-bit system. FakeDNS may not work.';
                 check.suggestion = 'Please try installing the 64-bit version of Antigravity Server for full compatibility.';
+            } else if (targetPath.endsWith('_arm') && isActually64Bit) {
+                check.message += ' (64-bit LS misnamed as _arm, handled)';
             } else if (extensionVersion !== 'unknown' && wrapperVersion !== 'unknown' && 
                 wrapperVersion !== extensionVersion && extensionVersion !== '__EXTENSION_VERSION_PLACEHOLDER__') {
                 check.status = 'warning';

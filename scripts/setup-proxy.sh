@@ -281,9 +281,22 @@ find_binaries() {
     local lib_name=""
     
     # Check if we should override based on target binary architecture
+    # On some ARM64 systems (like RK3588), 64-bit binaries may be named with _arm suffix
+    local actual_elf_arch=""
+    if command -v file &>/dev/null; then
+        actual_elf_arch=$(file -b "$target_binary" 2>/dev/null || echo "")
+    fi
+
     if [[ "$target_binary" == *"_arm" ]]; then
-        binary_name="mgraftcp-fakedns-linux-arm"
-        lib_name="libdnsredir-linux-arm.so"
+        if [[ "$actual_elf_arch" == *"aarch64"* ]] || [[ "$actual_elf_arch" == *"ARM aarch64"* ]]; then
+            # Misnamed 64-bit binary
+            binary_name="mgraftcp-fakedns-linux-arm64"
+            lib_name="libdnsredir-linux-arm64.so"
+        else
+            # Assume 32-bit arm
+            binary_name="mgraftcp-fakedns-linux-arm"
+            lib_name="libdnsredir-linux-arm.so"
+        fi
     elif [[ "$target_binary" == *"_x64" ]] || [[ "$target_binary" == *"_amd64" ]]; then
         binary_name="mgraftcp-fakedns-linux-amd64"
         lib_name="libdnsredir-linux-amd64.so"
@@ -304,6 +317,14 @@ find_binaries() {
                 ;;
         esac
     fi
+
+    # Final check: If the selected binary_name doesn't exist but we are on aarch64, 
+    # and we were looking for 'arm' (32-bit), try 'arm64' as a last resort.
+    # This covers cases where 'file' command is missing but it's a misnamed binary.
+    if [ "$arch" = "aarch64" ] && [[ "$binary_name" == *"linux-arm" ]]; then
+        # We'll check existence in the loop below and potentially swap
+        true
+    fi
     
     # Method 1: Use exact extension path if provided (preferred)
     if [ -n "$EXTENSION_BIN_PATH" ] && [ -d "$EXTENSION_BIN_PATH" ]; then
@@ -313,6 +334,15 @@ find_binaries() {
                 echo "$EXTENSION_BIN_PATH/$lib_name"
             fi
             return 0
+        elif [ "$arch" = "aarch64" ] && [[ "$binary_name" == *"linux-arm" ]]; then
+            # Special case: arm binary missing on aarch64, try arm64 as fallback
+            if [ -f "$EXTENSION_BIN_PATH/mgraftcp-fakedns-linux-arm64" ]; then
+                echo "$EXTENSION_BIN_PATH/mgraftcp-fakedns-linux-arm64"
+                if [ -f "$EXTENSION_BIN_PATH/libdnsredir-linux-arm64.so" ]; then
+                    echo "$EXTENSION_BIN_PATH/libdnsredir-linux-arm64.so"
+                fi
+                return 0
+            fi
         fi
     fi
     
@@ -324,6 +354,15 @@ find_binaries() {
                 echo "$dir/$lib_name"
             fi
             return 0
+        elif [ "$arch" = "aarch64" ] && [[ "$binary_name" == *"linux-arm" ]]; then
+            # Special case fallback
+            if [ -f "$dir/mgraftcp-fakedns-linux-arm64" ]; then
+                echo "$dir/mgraftcp-fakedns-linux-arm64"
+                if [ -f "$dir/libdnsredir-linux-arm64.so" ]; then
+                    echo "$dir/libdnsredir-linux-arm64.so"
+                fi
+                return 0
+            fi
         fi
     done
     return 1

@@ -1,0 +1,35 @@
+SSH Ready
+=== SYSTEM ARCH ===
+
+aarch64
+
+=== LS BINARIES ===
+
+/home/linaro/.antigravity-server/bin/1.20.6-135ccf460c67c4b900dc10aa71c978f27d78601c/extensions/antigravity/bin/language_server_linux_arm.bak: ELF 64-bit LSB pie executable, ARM aarch64, version 1 (SYSV), dynamically linked, interpreter /lib/ld-linux-aarch64.so.1, for GNU/Linux 3.7.0, BuildID[md5/uuid]=27866f266f09b06a9fc1d526183e0a81, stripped
+/home/linaro/.antigravity-server/bin/1.20.6-135ccf460c67c4b900dc10aa71c978f27d78601c/extensions/antigravity/bin/language_server_linux_arm: Bourne-Again shell script, ASCII text executable
+
+=== CURRENT WRAPPER CONTENT ===
+
+#!/bin/bash
+# ============================================================================
+# Antigravity SSH Proxy - Language Server Wrapper
+# ============================================================================
+# WRAPPER_VERSION="0.0.20"
+# GENERATED="2026-03-20T21:38:42+08:00"
+# ============================================================================
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
+
+# Proxy configuration - can be updated without replacing the wrapper
+PROXY_ADDR="127.0.0.1:2499"
+PROXY_TYPE="http"
+EXTENSION_BIN_PATH="/home/linaro/.antigravity-server/extensions/dinobot22.antigravity-ssh-proxy-0.0.20/resources/bin"
+
+# Dynamically find mgraftcp-fakedns and libdnsredir at runtime
+find_binaries() {
+    local target_binary="$1"
+    local arch=$(uname -m)
+
+=== RUNNING PROCESSES ===
+
