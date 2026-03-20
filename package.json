@@ -16,8 +16,7 @@
     "Other"
   ],
   "extensionKind": [
-    "workspace",
-    "ui"
+    "workspace"
   ],
   "activationEvents": [
     "onStartupFinished"

@@ -208,6 +208,13 @@ while IFS= read -r TARGET; do
     echo "Target: $TARGET"
     BAK="${TARGET}.bak"
     
+    # Check for architecture mismatch (32-bit LS on 64-bit system)
+    if echo "$TARGET" | grep -q "_arm$" && [ "$ARCH" = "aarch64" ]; then
+        warn_log "Architecture mismatch: 32-bit Language Server on aarch64 system."
+        warn_log "FakeDNS redirection (via libdnsredir-linux-arm64.so) will NOT work."
+        warn_log "Consider installing the 64-bit version of Antigravity Server."
+    fi
+    
     # Check if update is needed
     if UPDATE_REASON=$(check_needs_update "$TARGET"); then
         info_log "Update needed: $UPDATE_REASON"

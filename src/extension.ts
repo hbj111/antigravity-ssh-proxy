@@ -423,12 +423,20 @@ async function ensureMgraftcpExecutable(extensionPath: string): Promise<void> {
 	}
 
 	const mgraftcpPath = path.join(extensionPath, 'resources', 'bin', binaryName);
+	const libPath = path.join(extensionPath, 'resources', 'bin', binaryName.replace('mgraftcp-fakedns', 'libdnsredir') + '.so');
 
 	try {
 		await execAsync(`chmod +x "${mgraftcpPath}"`);
 		log(`Set execute permission for ${mgraftcpPath}`);
+		
+		// Also ensure lib is readable
+		try {
+			await fs.chmod(libPath, 0o644);
+		} catch (e) {
+			// Ignore if lib doesn't exist yet
+		}
 	} catch (error) {
-		log(`Failed to set execute permission for mgraftcp: ${error}`);
+		log(`Failed to set permissions for mgraftcp/lib: ${error}`);
 	}
 }
 
@@ -696,6 +704,10 @@ async function showStartupStatus(proxyHost: string, proxyPort: number): Promise<
 		if (proxyReachable && lsActuallyUsingProxy) {
 			// Everything is actually working - LS is using proxy
 			message = `✅ Proxy active (${proxyHost}:${proxyPort})`;
+		} else if (proxyReachable && proxyActive && !lsProcessForDecision) {
+			// Proxy is ready and running, but Language Server hasn't started yet
+			// This is a common and healthy state on startup
+			message = `✅ Proxy ready (${proxyHost}:${proxyPort})`;
 		} else if (proxyReachable && lsNeedsRestart) {
 			// LS is in persistent mode but not using proxy - this is the bug scenario
 			// Auto-fix by killing LS
@@ -707,7 +719,7 @@ async function showStartupStatus(proxyHost: string, proxyPort: number): Promise<
 				actions = ['Reload Now'];
 				
 				// Auto-reload after a short delay
-				setTimeout(() => {
+				global.setTimeout(() => {
 					vscode.commands.executeCommand('workbench.action.reloadWindow');
 				}, 2000);
 			} else {
@@ -748,7 +760,7 @@ async function showStartupStatus(proxyHost: string, proxyPort: number): Promise<
 			} else if (selection === 'Kill & Reload') {
 				// Kill LS and reload
 				await killLanguageServer();
-				setTimeout(() => {
+				global.setTimeout(() => {
 					vscode.commands.executeCommand('workbench.action.reloadWindow');
 				}, 1000);
 			} else if (selection === 'Run Diagnostics') {

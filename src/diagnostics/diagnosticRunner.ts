@@ -185,10 +185,25 @@ async function checkMgraftcp(extensionPath?: string): Promise<DiagnosticCheck> {
     };
 
     try {
-        const arch = process.arch === 'x64' ? 'amd64' : 'arm64';
-        // Use the correct binary name: mgraftcp-fakedns (not mgraftcp)
-        const binaryName = `mgraftcp-fakedns-linux-${arch}`;
-        const libName = `libdnsredir-linux-${arch}.so`;
+        const arch = os.arch();
+        let archSuffix = 'amd64';
+        
+        switch (arch) {
+            case 'x64':
+            case 'amd64':
+                archSuffix = 'amd64';
+                break;
+            case 'arm64':
+            case 'aarch64':
+                archSuffix = 'arm64';
+                break;
+            default:
+                archSuffix = arch;
+                break;
+        }
+
+        const binaryName = `mgraftcp-fakedns-linux-${archSuffix}`;
+        const libName = `libdnsredir-linux-${archSuffix}.so`;
         const homeDir = os.homedir();
         
         // Check if we're in a misconfigured environment (Windows path on Linux check)
@@ -295,6 +310,10 @@ async function checkLanguageServerWrapper(extensionPath?: string): Promise<Diagn
             return check;
         }
 
+        // Architecture check: RK3588 (aarch64) usually runs arm64, but if it found language_server_linux_arm, it's 32-bit
+        const isArm32 = targetPath.endsWith('_arm');
+        const isSystem64 = os.arch() === 'arm64' || os.arch() === 'aarch64';
+        
         // Check if it's a wrapper script
         const content = await fs.readFile(targetPath, 'utf-8');
         if (content.startsWith('#!/bin/bash') && content.includes('mgraftcp')) {
@@ -322,8 +341,11 @@ async function checkLanguageServerWrapper(extensionPath?: string): Promise<Diagn
 
             check.message = `Language server wrapper is configured (Wrapper v${wrapperVersion}, Extension v${extensionVersion})`;
             
-            // Warn if versions mismatch
-            if (extensionVersion !== 'unknown' && wrapperVersion !== 'unknown' && 
+            if (isArm32 && isSystem64) {
+                check.status = 'warning';
+                check.message += ' - ⚠️ Architecture mismatch detected: 32-bit LS on 64-bit system. FakeDNS may not work.';
+                check.suggestion = 'Please try installing the 64-bit version of Antigravity Server for full compatibility.';
+            } else if (extensionVersion !== 'unknown' && wrapperVersion !== 'unknown' && 
                 wrapperVersion !== extensionVersion && extensionVersion !== '__EXTENSION_VERSION_PLACEHOLDER__') {
                 check.status = 'warning';
                 check.message += ' - Version mismatch, update recommended';
