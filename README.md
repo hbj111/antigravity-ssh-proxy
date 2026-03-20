@@ -120,9 +120,34 @@
 | `remoteProxyPort` | 远程服务器上的代理端口。 |
 | `showStatusOnStartup` | 连接远程服务器时显示状态通知。 |
 
-## 卸载说明
+## 打包与安装
 
-卸载前，请先执行 **Antigravity SSH Proxy: Rollback Remote Environment** 命令以恢复原始的 Language Server。
+### 1. 编译并打包为 .vsix
+在项目根目录下依次运行以下命令：
+```bash
+npm install        # 安装依赖 (仅首次)
+npm run vsce:package # 编译代码并生成 .vsix 文件
+```
+运行完成后，会在根目录下生成一个 `antigravity-ssh-proxy-0.0.16.vsix` 文件。
+
+### 2. 部署到 Antigravity
+
+由于 Antigravity 分为本地和远程两个环境，请务必按照以下顺序安装：
+
+**第一步：本地安装**
+1. 在 Antigravity 中打开扩展视图 (`Ctrl+Shift+X`)。
+2. 点击右上角菜单 `...` -> `Install from VSIX...`。
+3. 选择刚才生成的 `.vsix` 文件安装。
+
+**第二步：远程安装 (关键)**
+1. 使用 SSH 连接到你的远程服务器（如 RK3588）。
+2. 在连接后的窗口中，再次打开扩展视图。
+3. 找到 **"Antigravity SSH Proxy"**，你会看到一个 **"Install in SSH: <host>"** 的蓝色按钮。
+4. 点击该按钮，安装完成后按照提示 **Reload Window**。
+
+---
+
+## 卸载说明
 
 ## 环境要求
 
