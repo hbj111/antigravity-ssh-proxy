@@ -2,6 +2,21 @@
 
 All notable changes to the "Antigravity SSH Proxy" extension will be documented in this file.
 
+## [0.0.16] - 2026-03-20
+
+### Fixed
+
+- **RK3588 (ARM64) Compatibility**: Resolved issue where remote binaries were not found due to incorrect local execution host selection.
+- **Startup Status Bug**: Fixed "Proxy status unknown" message when proxy is ready but Language Server hasn't started yet.
+- **Architecture Detection**: Improved `aarch64` matching logic and added 32-bit vs 64-bit conflict detection.
+- **Permission Fixes**: Automatically ensured shared libraries have correct permissions.
+
+### Added
+
+- **Architecture Diagnosis**: Added warning in diagnostics and setup script when a 32-bit LS is detected on a 64-bit ARM system.
+- **Force Remote Execution**: Updated `extensionKind` to ensure the extension always runs on the remote host when connected via SSH.
+
+
 ## [0.0.15] - 2026-02-27
 
 ### Added

@@ -15,7 +15,7 @@
 
 > ✨ **无需 root 权限** - 所有操作均在用户空间完成，安全便捷！
 
-> **注意:** 支持 **Linux 远程服务器 (x86_64 / amd64)**。ARM64 架构为**实验性支持**（需 v0.0.15+）。
+> **注意:** 支持 **Linux 远程服务器 (x86_64 / amd64 / ARM64)**。ARM64 架构（如 RK3588）已在 v0.0.16 中获得正式支持。
 
 > 本项目基于 [wang-muhan/antigravity-interface](https://github.com/wang-muhan/antigravity-interface) 进行二次开发，感谢原作者的出色工作！
 
@@ -66,7 +66,7 @@
 **Step 3 — 激活并验证**
 
 1. 按照提示执行 **Reload Window** 重启窗口. PS: 由于远程的需要对language server进行wrapper, 插件有的时候会提示您**多次**重启远程窗口,**按提示重启**. 本地的Antigravity窗口一般不需要重启)
-2. 打开右下角 **ATP 面板**，运行 **连接诊断** 检查代理状态
+2. 打开右下角 **ATP 面板**，运行 **连接诊断** 检查代理状态。如果是 RK3588 等 ARM64 设备，重点关注 **Language Server Wrapper** 检查是否报“架构不匹配”警告。
 3. 显示正常后，远程 AI 功能即可使用 🎉
    
 **Step 4 — 简单重试**
@@ -96,6 +96,9 @@
 > | `Antigravity` | Output 面板 → Antigravity |
 > | `Antigravity SSH Proxy` | Output 面板 → Antigravity SSH Proxy |
 
+> 4. 架构兼容性说明 (针对 ARM64)
+> 如果你的系统是 `aarch64` (64位) 但 `ps -aux` 显示 `language_server_linux_arm` (32位)，FakeDNS 功能将无法工作，请尝试更换 64 位版本的 Antigravity Server。
+
 > 4. 一些额外的系统信息
 > ```bash
 >    uname -a                          # 内核版本
@@ -105,7 +108,7 @@
 >    ls -la /.dockerenv                # 是否在 Docker 中
 >    lscpu | grep -i aes               # 查看cpu情况
 >    ps -aux | grep language_server
->```
+> ```
 
 ## 扩展设置
 
