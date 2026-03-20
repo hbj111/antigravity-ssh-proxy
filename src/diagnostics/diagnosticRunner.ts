@@ -207,10 +207,12 @@ async function checkMgraftcp(extensionPath?: string): Promise<DiagnosticCheck> {
         const homeDir = os.homedir();
         
         // Check if we're in a misconfigured environment (Windows path on Linux check)
-        if (homeDir.includes(':\\') || homeDir.includes('\\Users\\')) {
-            check.status = 'error';
-            check.message = 'Remote extension not installed on the remote server';
-            check.suggestion = 'Please install "Antigravity SSH Proxy" extension on the remote server: Open Extensions sidebar (Ctrl+Shift+X) → Search "Antigravity SSH Proxy" → Click "Install in SSH: <host>" button.';
+        const isWindowsPath = homeDir.includes(':\\') || homeDir.includes('\\Users\\');
+        if (isWindowsPath && !isRunningLocally()) {
+            // We are likely a UI-side extension instance running in a remote window
+            check.status = 'warning';
+            check.message = 'Remote binary check limited in UI-mode';
+            check.suggestion = 'The extension is running on your local machine. Use "Setup Remote Environment" to ensure binaries are installed on the server.';
             return check;
         }
         
@@ -263,7 +265,11 @@ async function checkMgraftcp(extensionPath?: string): Promise<DiagnosticCheck> {
     } catch (error) {
         const errorStr = String(error);
         // Check for Windows path error indicators
-        if (errorStr.includes(':\\') || errorStr.includes('\\Users\\') || errorStr.includes('系统找不到')) {
+        const isWindowsPath = os.homedir().includes(':\\') || os.homedir().includes('\\Users\\');
+        if ((errorStr.includes(':\\') || errorStr.includes('\\Users\\') || errorStr.includes('系统找不到')) && !isRunningLocally()) {
+            check.status = 'warning';
+            check.message = 'Remote binary check limited in UI-mode';
+        } else if (errorStr.includes(':\\') || errorStr.includes('\\Users\\') || errorStr.includes('系统找不到')) {
             check.status = 'error';
             check.message = 'Remote extension not installed on the remote server';
             check.suggestion = 'Please install "Antigravity SSH Proxy" extension on the remote server: Open Extensions sidebar (Ctrl+Shift+X) → Search "Antigravity SSH Proxy" → Click "Install in SSH: <host>" button.';
@@ -291,10 +297,11 @@ async function checkLanguageServerWrapper(extensionPath?: string): Promise<Diagn
         const homeDir = os.homedir();
         
         // Check if we're in a misconfigured environment (Windows path on Linux check)
-        if (homeDir.includes(':\\') || homeDir.includes('\\Users\\')) {
-            check.status = 'error';
-            check.message = 'Remote extension not installed on the remote server';
-            check.suggestion = 'Please install "Antigravity SSH Proxy" extension on the remote server: Open Extensions sidebar (Ctrl+Shift+X) → Search "Antigravity SSH Proxy" → Click "Install in SSH: <host>" button.';
+        const isWindowsPath = homeDir.includes(':\\') || homeDir.includes('\\Users\\');
+        if (isWindowsPath && !isRunningLocally()) {
+            // We are likely a UI-side extension instance running in a remote window
+            check.status = 'warning';
+            check.message = 'Remote wrapper check limited in UI-mode';
             return check;
         }
         
@@ -437,6 +444,12 @@ async function checkLanguageServerProcess(): Promise<DiagnosticCheck> {
 
     } catch {
         // grep returns non-zero if no match
+        const isWindowsPath = os.homedir().includes(':\\') || os.homedir().includes('\\Users\\');
+        if (isWindowsPath && !isRunningLocally()) {
+            check.status = 'warning';
+            check.message = 'Remote process check limited in UI-mode';
+            return check;
+        }
         check.status = 'warning';
         check.message = 'Language Server is not running';
         check.suggestion = 'This may be normal if you haven\'t used any AI features yet.';
