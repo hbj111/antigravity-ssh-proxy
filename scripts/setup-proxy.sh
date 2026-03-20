@@ -75,6 +75,10 @@ case "$ARCH" in
         EXPECTED_BINARY="mgraftcp-fakedns-linux-arm64"
         EXPECTED_LIB="libdnsredir-linux-arm64.so"
         ;;
+    armv7l|armv8l|armhf|arm)
+        EXPECTED_BINARY="mgraftcp-fakedns-linux-arm"
+        EXPECTED_LIB="libdnsredir-linux-arm.so"
+        ;;
     *) 
         EXPECTED_BINARY="mgraftcp-fakedns-linux-$ARCH"
         EXPECTED_LIB="libdnsredir-linux-$ARCH.so"
@@ -271,20 +275,35 @@ EXTENSION_BIN_PATH="__EXTENSION_BIN_PATH_PLACEHOLDER__"
 
 # Dynamically find mgraftcp-fakedns and libdnsredir at runtime
 find_binaries() {
+    local target_binary="$1"
     local arch=$(uname -m)
     local binary_name=""
     local lib_name=""
-    case "$arch" in
-        x86_64|amd64) 
-            binary_name="mgraftcp-fakedns-linux-amd64"
-            lib_name="libdnsredir-linux-amd64.so"
-            ;;
-        aarch64|arm64) 
-            binary_name="mgraftcp-fakedns-linux-arm64"
-            lib_name="libdnsredir-linux-arm64.so"
-            ;;
-        *) return 1 ;;
-    esac
+    
+    # Check if we should override based on target binary architecture
+    if [[ "$target_binary" == *"_arm" ]]; then
+        binary_name="mgraftcp-fakedns-linux-arm"
+        lib_name="libdnsredir-linux-arm.so"
+    elif [[ "$target_binary" == *"_x64" ]] || [[ "$target_binary" == *"_amd64" ]]; then
+        binary_name="mgraftcp-fakedns-linux-amd64"
+        lib_name="libdnsredir-linux-amd64.so"
+    else
+        # Fallback to system architecture
+        case "$arch" in
+            x86_64|amd64) 
+                binary_name="mgraftcp-fakedns-linux-amd64"
+                lib_name="libdnsredir-linux-amd64.so"
+                ;;
+            aarch64|arm64) 
+                binary_name="mgraftcp-fakedns-linux-arm64"
+                lib_name="libdnsredir-linux-arm64.so"
+                ;;
+            armv7l|armv8l|armhf|arm)
+                binary_name="mgraftcp-fakedns-linux-arm"
+                lib_name="libdnsredir-linux-arm.so"
+                ;;
+        esac
+    fi
     
     # Method 1: Use exact extension path if provided (preferred)
     if [ -n "$EXTENSION_BIN_PATH" ] && [ -d "$EXTENSION_BIN_PATH" ]; then
@@ -311,7 +330,8 @@ find_binaries() {
 }
 
 # Get both paths
-BINARIES=$(find_binaries)
+# We pass the target LS path to find_binaries so it can detect if we need 32-bit proxy for 32-bit LS
+BINARIES=$(find_binaries "$SCRIPT_DIR/$SCRIPT_NAME.bak")
 MGRAFTCP_PATH=$(echo "$BINARIES" | head -1)
 DNSREDIR_PATH=$(echo "$BINARIES" | tail -1)
 

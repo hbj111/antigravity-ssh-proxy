@@ -33,6 +33,11 @@ if ! command -v aarch64-linux-gnu-gcc &>/dev/null; then
     sudo apt-get update -qq && sudo apt-get install -y -qq gcc-aarch64-linux-gnu
 fi
 
+if ! command -v arm-linux-gnueabihf-gcc &>/dev/null; then
+    echo "Installing arm (32-bit) cross-compiler..."
+    sudo apt-get update -qq && sudo apt-get install -y -qq gcc-arm-linux-gnueabihf
+fi
+
 mkdir -p "$OUTPUT_DIR"
 
 build_for_arch() {
@@ -67,6 +72,7 @@ build_for_arch() {
 
 build_for_arch "amd64" ""
 build_for_arch "arm64" "aarch64-linux-gnu-"
+build_for_arch "arm" "arm-linux-gnueabihf-"
 
 echo ""
 echo "Build complete!"

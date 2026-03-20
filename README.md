@@ -161,3 +161,17 @@ npm run vsce:package # 编译代码并生成 .vsix 文件
 
 - [graftcp](https://github.com/hmgle/graftcp): 提供了核心代理功能。
 - [antigravity-interface](https://github.com/wang-muhan/antigravity-interface): 提供了最初的插件实现。
+
+## 常见问题 (FAQ)
+
+### RK3588 / ARM64 平台上出现 "Authentication Required"
+如果您在 RK3588 等 ARM64 设备上看到 Agent 窗口显示 "Authentication Required"，通常是由于 **32位与64位架构不匹配** 导致的。
+
+**原因**：
+您可能安装了 32 位的 Antigravity Server，而该插件提供的 DNS 劫持库 (`libdnsredir`) 是 64 位的，无法加载到 32 位进程中，导致代理功能失效。
+
+**解决方法**：
+1. 在远程 VS Code 的扩展列表中，卸载 **Antigravity** 核心扩展。
+2. 在远程终端执行：`rm -rf ~/.antigravity-server` 清理残留环境。
+3. 退出并重新连接远程服务器，确保通过 "Install in SSH" 重新安装 **Linux-ARM64** 架构的版本。
+4. 重新运行 `Antigravity SSH Proxy: Setup Remote Environment`。

@@ -88,6 +88,9 @@ const i18n = {
         tipStep3Remote: '先打开一个新的本地窗口（文件 → 新建窗口）',
         tipStep4Remote: '然后从本地窗口连接到远程服务器',
         tipNoteRemote: '这通常发生在你通过 Antigravity 的"最近连接"直接连接远程，而没有先打开本地窗口的情况下。',
+        tipTitleRK3588: 'RK3588 (ARM64) 特别注意',
+        tipRK3588Auth: '💡 如果出现 "Authentication Required"，请检查是否安装了 32 位 Antigravity Server (诊断显示 ⚠️ Architecture mismatch)。',
+        tipRK3588Fix: '💡 解决方法：卸载当前 Antigravity 扩展，删除 ~/.antigravity-server，重连并确保安装 64 位(arm64)版本。',
         pending: '待检测',
         success: '通过',
         warning: '警告',
@@ -167,6 +170,9 @@ const i18n = {
         tipStep3Remote: 'Open a new local window first (File → New Window)',
         tipStep4Remote: 'Then connect to remote from the local window',
         tipNoteRemote: 'This usually happens when you connect directly via Antigravity\'s recent connections without opening a local window first.',
+        tipTitleRK3588: 'RK3588 (ARM64) Special Note',
+        tipRK3588Auth: '💡 If "Authentication Required" appears, check if a 32-bit Antigravity Server is installed (Diagnostics show ⚠️ Architecture mismatch).',
+        tipRK3588Fix: '💡 Fix: Uninstall the current Antigravity extension, delete ~/.antigravity-server, reconnect and ensure Linux-ARM64 version is installed.',
         pending: 'Pending',
         success: 'Pass',
         warning: 'Warning',
@@ -543,6 +549,9 @@ export class StatusManager {
                 reachable: t.reachable, unreachable: t.unreachable,
                 configured: t.configured, notConfigured: t.notConfigured,
                 updated: t.updated,
+                tipTitleRK3588: t.tipTitleRK3588,
+                tipRK3588Auth: t.tipRK3588Auth,
+                tipRK3588Fix: t.tipRK3588Fix,
             }
         });
     }

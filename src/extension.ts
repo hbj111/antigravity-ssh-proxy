@@ -417,6 +417,10 @@ async function ensureMgraftcpExecutable(extensionPath: string): Promise<void> {
 		case 'aarch64':
 			binaryName = 'mgraftcp-fakedns-linux-arm64';
 			break;
+		case 'arm':
+		case 'armhf':
+			binaryName = 'mgraftcp-fakedns-linux-arm';
+			break;
 		default:
 			log(`Unsupported architecture: ${arch}`);
 			return;
