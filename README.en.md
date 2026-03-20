@@ -16,7 +16,7 @@ This is an extension for **Antigravity** ([Open VSX Link](https://open-vsx.org/e
 
 > ✨ **No Root Permission Required** - All operations run in user space for security and convenience!
 
-> **Note:** Supports **Linux remote servers (x86_64 / amd64)**. ARM64 architecture is **experimentally supported** (requires v0.0.15+).
+> **Note:** Supports **Linux remote servers (x86_64 / amd64 / ARM64)**. ARM64 architecture (e.g., RK3588) is officially supported in v0.0.16.
 
 > This project is a fork of [wang-muhan/antigravity-interface](https://github.com/wang-muhan/antigravity-interface). Thanks to the original author for the excellent work!
 
