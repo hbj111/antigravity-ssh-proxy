@@ -10,5 +10,6 @@
     },
     // Turn off tsc task auto detection since we have the necessary tasks as npm scripts
     "typescript.tsc.autoDetect": "off",
-    "antigravity-proxy.enableLocalForwarding": true
+    "antigravity-ssh-proxy.enableLocalForwarding": true,
+    "i18n-ally.localesPaths": []
 }

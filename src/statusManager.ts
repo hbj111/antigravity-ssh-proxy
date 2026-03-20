@@ -209,7 +209,7 @@ export class StatusManager {
     constructor(private isLocal: boolean, private context: vscode.ExtensionContext) {
         this.statusBarItem = vscode.window.createStatusBarItem(
             vscode.StatusBarAlignment.Left,
-            -100
+            100
         );
         this.statusBarItem.command = 'antigravity-ssh-proxy.showStatusPanel';
         this.statusBarItem.name = 'ATP';
