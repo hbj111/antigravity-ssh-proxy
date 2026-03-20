@@ -371,8 +371,8 @@ find_binaries() {
 # Get both paths
 # We pass the target LS path to find_binaries so it can detect if we need 32-bit proxy for 32-bit LS
 BINARIES=$(find_binaries "$SCRIPT_DIR/$SCRIPT_NAME.bak")
-MGRAFTCP_PATH=$(echo "$BINARIES" | head -1)
-DNSREDIR_PATH=$(echo "$BINARIES" | tail -1)
+MGRAFTCP_PATH=$(echo "$BINARIES" | head -n 1)
+DNSREDIR_PATH=$(echo "$BINARIES" | sed -n '2p')
 
 if [ -z "$MGRAFTCP_PATH" ] || [ ! -f "$MGRAFTCP_PATH" ]; then
     # Fallback: run without proxy if mgraftcp not found
@@ -383,6 +383,12 @@ chmod +x "$MGRAFTCP_PATH" 2>/dev/null || true
 
 # Force Go programs to use cgo DNS resolver (required for LD_PRELOAD to work)
 export GODEBUG="${GODEBUG:+$GODEBUG,}netdns=cgo"
+
+# Fix for RK3588/ARM64: The mgraftcp binary may have hardcoded libdnsredir-linux-amd64.so
+# We override it by providing the correct path via GRAFTCP_INTERNAL_LIB
+if [ -n "$DNSREDIR_PATH" ] && [ -f "$DNSREDIR_PATH" ]; then
+    export GRAFTCP_INTERNAL_LIB="$DNSREDIR_PATH"
+fi
 
 # Select proxy argument based on proxy type
 if [ "$PROXY_TYPE" = "socks5" ]; then
