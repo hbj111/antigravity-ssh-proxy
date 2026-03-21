@@ -209,10 +209,11 @@ export class StatusManager {
     constructor(private isLocal: boolean, private context: vscode.ExtensionContext) {
         this.statusBarItem = vscode.window.createStatusBarItem(
             vscode.StatusBarAlignment.Left,
-            -100
+            100000 // Highest priority
         );
         this.statusBarItem.command = 'antigravity-ssh-proxy.showStatusPanel';
-        this.statusBarItem.name = 'ATP';
+        this.statusBarItem.name = 'Antigravity SSH Proxy';
+        console.log(`[ATP] Status bar item created (isLocal=${isLocal})`);
 
         const config = vscode.workspace.getConfiguration('antigravity-ssh-proxy');
         this.currentStatus = {
@@ -241,6 +242,25 @@ export class StatusManager {
      */
     setConfigChangeCallback(callback: ConfigChangeCallback): void {
         this.onConfigChange = callback;
+    }
+
+    /**
+     * Get the latest diagnostic report
+     */
+    async getLatestDiagnosticReport(): Promise<DiagnosticReport | null> {
+        // If no report yet, run diagnostics once
+        if (!this.currentDiagnosticReport && !this.isRunningDiagnostics) {
+            this.isRunningDiagnostics = true;
+            try {
+                this.currentDiagnosticReport = await runDiagnostics(
+                    (checks) => { /* Ignore progress here */ },
+                    this.context.extensionUri.fsPath
+                );
+            } finally {
+                this.isRunningDiagnostics = false;
+            }
+        }
+        return this.currentDiagnosticReport;
     }
 
     onStatusUpdate(callback: StatusUpdateCallback): vscode.Disposable {

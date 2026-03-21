@@ -255,6 +255,22 @@ async function getSSHConfigStatus(): Promise<{ enabled: boolean; port?: number }
 }
 
 export async function activate(context: vscode.ExtensionContext) {
+	// Register global error handlers for debugging remote crashes
+	process.on('unhandledRejection', (reason) => {
+		console.error('[ATP] Unhandled Rejection:', reason);
+		if (outputChannel) {
+			const timestamp = new Date().toISOString();
+			outputChannel.appendLine(`${timestamp} [CRITICAL] Unhandled Rejection: ${reason}`);
+		}
+	});
+	process.on('uncaughtException', (error) => {
+		console.error('[ATP] Uncaught Exception:', error);
+		if (outputChannel) {
+			const timestamp = new Date().toISOString();
+			outputChannel.appendLine(`${timestamp} [CRITICAL] Uncaught Exception: ${error}`);
+		}
+	});
+
 	console.log('[ATP] Extension activating...', { extensionKind: context.extension.extensionKind });
 	// 创建专用的 Output Channel
 	outputChannel = vscode.window.createOutputChannel('Antigravity SSH Proxy');
@@ -265,6 +281,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	// 初始化状态管理器
 	statusManager = new StatusManager(isRunningLocally(), context);
 	context.subscriptions.push(statusManager);
+	
+	// Force show icon immediately
+	log('Initial status bar item show');
+	statusManager.refreshStatus();
 
 	// 初始化诊断面板
 	diagnosticPanel = new DiagnosticPanel(context);
@@ -492,6 +512,26 @@ async function activateRemote(context: vscode.ExtensionContext) {
 	const setupSuccess = await runSetupScriptSilently(remoteHost, remotePort, proxyType, extensionPath);
 	statusManager.updateLanguageServerStatus(setupSuccess);
 
+	// Check for architecture mismatch and warn user
+	setTimeout(async () => {
+		const diagnosticResult = await statusManager.getLatestDiagnosticReport();
+		const hasMismatch = diagnosticResult?.checks.some((c: any) => c.id === 'ls-wrapper' && c.status === 'warning' && c.message?.includes('Architecture mismatch'));
+		if (hasMismatch) {
+			const selection = await vscode.window.showWarningMessage(
+				'检测到架构不匹配：您的 Language Server 是 32 位，但系统缺少 32 位兼容库。需要进行深度修复。',
+				{ modal: true },
+				'立即修复 (Repair Now)',
+				'查看详情 (View Details)',
+				'稍后 (Later)'
+			);
+			if (selection === '立即修复 (Repair Now)') {
+				vscode.commands.executeCommand('antigravity-ssh-proxy.repairEnvironment');
+			} else if (selection === '查看详情 (View Details)') {
+				vscode.commands.executeCommand('antigravity-ssh-proxy.diagnose');
+			}
+		}
+	}, 5000);
+
 	// Watch config changes (from VS Code settings)
 	context.subscriptions.push(
 		vscode.workspace.onDidChangeConfiguration(async (e: vscode.ConfigurationChangeEvent) => {
@@ -533,6 +573,22 @@ async function activateRemote(context: vscode.ExtensionContext) {
 			const ok = await checkPortAvailable(remoteHost, remotePort);
 			await statusManager.refreshStatus();
 			vscode.window.showInformationMessage(ok ? `Proxy OK` : `Proxy NOT reachable`);
+		}),
+		
+		vscode.commands.registerCommand('antigravity-ssh-proxy.repairEnvironment', async () => {
+			const terminal = vscode.window.createTerminal('Antigravity Deep Repair');
+			terminal.show();
+			// 1. Install dependencies
+			terminal.sendText('sudo dpkg --add-architecture armhf && sudo apt update && sudo apt install -y libc6:armhf build-essential git gcc-arm-linux-gnueabihf');
+			// 2. Trigger setup once environment is ready
+			terminal.sendText('echo "================================================================"');
+			terminal.sendText('echo "✅ 32 位环境补丁已安装。正在为您自动构建并配置代理桥接软件..."');
+			terminal.sendText('echo "================================================================"');
+			
+			// Give some time for the terminal command to start
+			setTimeout(() => {
+				vscode.commands.executeCommand('antigravity-ssh-proxy.setup');
+			}, 3000);
 		})
 	);
 

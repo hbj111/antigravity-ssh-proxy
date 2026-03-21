@@ -58,15 +58,60 @@ echo ""
 # System info
 ARCH=$(uname -m)
 info_log "System Architecture: $ARCH"
+
+# Self-test for necessary system tools
+for tool in file ldd bash; do
+    if ! command -v $tool &>/dev/null; then
+        warn_log "System tool '$tool' is missing. Some architecture detection may fail."
+    fi
+done
+
 info_log "Proxy Config: $PROXY_ADDR ($PROXY_TYPE)"
 info_log "Extension Version: $EXTENSION_VERSION"
 if [ -n "$EXTENSION_PATH" ]; then
     info_log "Extension Path: $EXTENSION_PATH"
 fi
+
+# Cleanup old version directories to avoid confusion and binary mismatches
+# Search and remove versions that are known to have architecture issues on RK3588
+info_log "Checking for old version conflicts..."
+for old_ver in 0.0.15 0.0.24 0.0.25 0.0.26; do
+    if [ "$old_ver" != "$EXTENSION_VERSION" ]; then
+        old_dirs=$(ls -d "$HOME/.antigravity-server/extensions/"*antigravity-ssh-proxy-"$old_ver"* 2>/dev/null || true)
+        if [ -n "$old_dirs" ]; then
+            info_log "Cleaning up old version: $old_ver"
+            echo "$old_dirs" | xargs rm -rf 2>/dev/null || true
+        fi
+    fi
+done
+
 echo ""
 
 # Determine expected binary names based on architecture
-case "$ARCH" in
+# RK3588 Special: If system is aarch64 but target is arm (32-bit), we need the 32-bit bridge.
+TARGET_ARCH="$ARCH"
+TARGET_IS_32BIT=0
+
+# Try to detect Language Server architecture
+LS_BIN=$(find "$HOME/.antigravity-server/bin" -name "language_server_linux" | head -n 1 || echo "")
+if [ -n "$LS_BIN" ] && [ -f "$LS_BIN" ]; then
+    if file "$LS_BIN" | grep -q "32-bit"; then
+        info_log "Detected 32-bit Language Server on $ARCH system. Switching to 32-bit bridge mode."
+        TARGET_ARCH="arm"
+        TARGET_IS_32BIT=1
+        
+        # Verify if system can run 32-bit
+        if [ "$ARCH" = "aarch64" ] && ! dpkg --get-selections | grep -q "libc6:armhf"; then
+             warn_log "================================================================"
+             warn_log "⚠️  您的系统缺少 32 位运行库 (libc6:armhf)，无法运行代理工具。"
+             warn_log "请执行以下命令开启 32 位支持："
+             warn_log "sudo dpkg --add-architecture armhf && sudo apt update && sudo apt install -y libc6:armhf"
+             warn_log "================================================================"
+        fi
+    fi
+fi
+
+case "$TARGET_ARCH" in
     x86_64|amd64) 
         EXPECTED_BINARY="mgraftcp-fakedns-linux-amd64"
         EXPECTED_LIB="libdnsredir-linux-amd64.so"
@@ -80,8 +125,8 @@ case "$ARCH" in
         EXPECTED_LIB="libdnsredir-linux-arm.so"
         ;;
     *) 
-        EXPECTED_BINARY="mgraftcp-fakedns-linux-$ARCH"
-        EXPECTED_LIB="libdnsredir-linux-$ARCH.so"
+        EXPECTED_BINARY="mgraftcp-fakedns-linux-$TARGET_ARCH"
+        EXPECTED_LIB="libdnsredir-linux-$TARGET_ARCH.so"
         ;;
 esac
 
@@ -213,10 +258,27 @@ while IFS= read -r TARGET; do
     BAK="${TARGET}.bak"
     
     # Check for architecture mismatch (32-bit LS on 64-bit system)
-    if echo "$TARGET" | grep -q "_arm$" && [ "$ARCH" = "aarch64" ]; then
-        warn_log "Architecture mismatch: 32-bit Language Server on aarch64 system."
-        warn_log "FakeDNS redirection (via libdnsredir-linux-arm64.so) will NOT work."
-        warn_log "Consider installing the 64-bit version of Antigravity Server."
+    TARGET_ELF_ARCH=""
+    if command -v file &>/dev/null; then
+        TARGET_ELF_ARCH=$(file -b "$TARGET" 2>/dev/null || echo "")
+    fi
+
+    if [[ "$TARGET" == *"_arm"* ]] && [[ "$ARCH" == "aarch64" ]]; then
+        if [[ "$TARGET_ELF_ARCH" == *"32-bit"* ]]; then
+            warn_log "Architecture mismatch: 32-bit Language Server on aarch64 system."
+            warn_log "You MUST use 32-bit mgraftcp and libdnsredir for this to work."
+            warn_log "I will search for 32-bit binaries (linux-arm)..."
+            
+            # Switch expected tools for THIS target
+            TARGET_BINARY="mgraftcp-fakedns-linux-arm"
+            TARGET_LIB="libdnsredir-linux-arm.so"
+        else
+             TARGET_BINARY="$EXPECTED_BINARY"
+             TARGET_LIB="$EXPECTED_LIB"
+        fi
+    else
+        TARGET_BINARY="$EXPECTED_BINARY"
+        TARGET_LIB="$EXPECTED_LIB"
     fi
     
     # Check if update is needed
@@ -329,18 +391,12 @@ find_binaries() {
     # Method 1: Use exact extension path if provided (preferred)
     if [ -n "$EXTENSION_BIN_PATH" ] && [ -d "$EXTENSION_BIN_PATH" ]; then
         if [ -f "$EXTENSION_BIN_PATH/$binary_name" ]; then
-            echo "$EXTENSION_BIN_PATH/$binary_name"
-            if [ -f "$EXTENSION_BIN_PATH/$lib_name" ]; then
-                echo "$EXTENSION_BIN_PATH/$lib_name"
-            fi
-            return 0
-        elif [ "$arch" = "aarch64" ] && [[ "$binary_name" == *"linux-arm" ]]; then
-            # Special case: arm binary missing on aarch64, try arm64 as fallback
-            if [ -f "$EXTENSION_BIN_PATH/mgraftcp-fakedns-linux-arm64" ]; then
-                echo "$EXTENSION_BIN_PATH/mgraftcp-fakedns-linux-arm64"
-                if [ -f "$EXTENSION_BIN_PATH/libdnsredir-linux-arm64.so" ]; then
-                    echo "$EXTENSION_BIN_PATH/libdnsredir-linux-arm64.so"
-                fi
+            # Verify bitness
+            if [ "$TARGET_IS_32BIT" = "1" ] && file "$EXTENSION_BIN_PATH/$binary_name" | grep -q "64-bit"; then
+                debug_log "Found $binary_name but it is 64-bit, skipping (need 32-bit)."
+            else
+                echo "$EXTENSION_BIN_PATH/$binary_name"
+                [ -f "$EXTENSION_BIN_PATH/$lib_name" ] && echo "$EXTENSION_BIN_PATH/$lib_name"
                 return 0
             fi
         fi
@@ -349,18 +405,12 @@ find_binaries() {
     # Method 2: Fallback - search in all versions (sorted by version, newest first)
     for dir in $(ls -d "$HOME/.antigravity-server/extensions/"*antigravity-ssh-proxy*/resources/bin 2>/dev/null | sort -t'-' -k3 -V -r); do
         if [ -f "$dir/$binary_name" ]; then
-            echo "$dir/$binary_name"
-            if [ -f "$dir/$lib_name" ]; then
-                echo "$dir/$lib_name"
-            fi
-            return 0
-        elif [ "$arch" = "aarch64" ] && [[ "$binary_name" == *"linux-arm" ]]; then
-            # Special case fallback
-            if [ -f "$dir/mgraftcp-fakedns-linux-arm64" ]; then
-                echo "$dir/mgraftcp-fakedns-linux-arm64"
-                if [ -f "$dir/libdnsredir-linux-arm64.so" ]; then
-                    echo "$dir/libdnsredir-linux-arm64.so"
-                fi
+            # Verify bitness
+            if [ "$TARGET_IS_32BIT" = "1" ] && file "$dir/$binary_name" | grep -q "64-bit"; then
+                debug_log "Found $dir/$binary_name but it is 64-bit, skipping."
+            else
+                echo "$dir/$binary_name"
+                [ -f "$dir/$lib_name" ] && echo "$dir/$lib_name"
                 return 0
             fi
         fi
@@ -368,15 +418,84 @@ find_binaries() {
     return 1
 }
 
+# Function to build 32-bit graftcp binaries if missing on ARM64
+build_32bit_binaries() {
+    local target_dir="$1"
+    info_log "Attempting to build 32-bit ARM binaries on RK3588/ARM64..."
+    
+    if ! command -v gcc &>/dev/null || ! command -v make &>/dev/null; then
+        warn_log "Build tools (gcc/make) not found. Cannot build 32-bit binaries automatically."
+        return 1
+    fi
+
+    local temp_build="/tmp/graftcp_build"
+    mkdir -p "$temp_build"
+    cd "$temp_build" || return 1
+    
+    info_log "Cloning graftcp source..."
+    if ! git clone --depth 1 https://github.com/hmgle/graftcp.git . 2>/dev/null; then
+        warn_log "Git clone failed. Internet access might be required."
+        return 1
+    fi
+    
+    info_log "Compiling mgraftcp (32-bit)..."
+    # Try to build 32-bit. On ARM64 Debian/Ubuntu, this often works with -m32 or just using the right toolchain
+    if command -v arm-linux-gnueabihf-gcc &>/dev/null; then
+        make CROSS_COMPILE=arm-linux-gnueabihf-
+    elif gcc -v 2>&1 | grep -q "aarch64"; then
+        # On some ARM64 systems, you can build 32-bit if libc6-dev-armhf-cross is installed
+        make CROSS_COMPILE=arm-linux-gnueabihf- || make
+    else
+        make
+    fi
+    
+    if [ -f "local/mgraftcp" ]; then
+        cp local/mgraftcp "$target_dir/mgraftcp-fakedns-linux-arm"
+        info_log "✅ Successfully built mgraftcp-fakedns-linux-arm"
+    fi
+    
+    # Build libdnsredir.so (32-bit)
+    cd local/dnsredir || return 1
+    local gcc_cmd="gcc"
+    [ -n "$(command -v arm-linux-gnueabihf-gcc)" ] && gcc_cmd="arm-linux-gnueabihf-gcc"
+    
+    $gcc_cmd -Wall -Wextra -O2 -fPIC -o libdnsredir.so dnsredir.c -shared -ldl 2>/dev/null
+    if [ -f "libdnsredir.so" ]; then
+        cp libdnsredir.so "$target_dir/libdnsredir-linux-arm.so"
+        info_log "✅ Successfully built libdnsredir-linux-arm.so"
+    fi
+    
+    cd /tmp && rm -rf "$temp_build"
+    return 0
+}
+
 # Get both paths
-# We pass the target LS path to find_binaries so it can detect if we need 32-bit proxy for 32-bit LS
 BINARIES=$(find_binaries "$SCRIPT_DIR/$SCRIPT_NAME.bak")
 MGRAFTCP_PATH=$(echo "$BINARIES" | head -n 1)
 DNSREDIR_PATH=$(echo "$BINARIES" | sed -n '2p')
 
+# If missing 32-bit but on ARM64, try to build
+if [ -z "$MGRAFTCP_PATH" ] && [[ "$ARCH" == "aarch64" ]] && [[ "$TARGET_BINARY" == *"linux-arm" ]]; then
+    EXTENSION_BIN_DIR="${EXTENSION_PATH:-$HOME/.antigravity-server/extensions/dinobot22.antigravity-ssh-proxy-$EXTENSION_VERSION}/resources/bin"
+    mkdir -p "$EXTENSION_BIN_DIR"
+    build_32bit_binaries "$EXTENSION_BIN_DIR"
+    
+    # Re-search
+    BINARIES=$(find_binaries "$SCRIPT_DIR/$SCRIPT_NAME.bak")
+    MGRAFTCP_PATH=$(echo "$BINARIES" | head -n 1)
+    DNSREDIR_PATH=$(echo "$BINARIES" | sed -n '2p')
+fi
+
 if [ -z "$MGRAFTCP_PATH" ] || [ ! -f "$MGRAFTCP_PATH" ]; then
-    # Fallback: run without proxy if mgraftcp not found
-    exec "$SCRIPT_DIR/$SCRIPT_NAME.bak" "$@"
+    # Final fallback: use system mgraftcp if available
+    SYSTEM_MGRAFTCP=$(which mgraftcp 2>/dev/null || true)
+    if [ -n "$SYSTEM_MGRAFTCP" ]; then
+        MGRAFTCP_PATH="$SYSTEM_MGRAFTCP"
+        info_log "Using system mgraftcp as fallback"
+    else
+        warn_log "CRITICAL: mgraftcp binary NOT found and build failed."
+        exec "$SCRIPT_DIR/$SCRIPT_NAME.bak" "$@"
+    fi
 fi
 
 chmod +x "$MGRAFTCP_PATH" 2>/dev/null || true
@@ -444,6 +563,13 @@ if [ $CONFIGURED_COUNT -gt 0 ]; then
     echo ""
     echo "Setup complete: proxy=$PROXY_ADDR"
     echo "Note: Reload window to apply changes to language server."
+    if [ "$TARGET_IS_32BIT" = "1" ] && [ -z "$DNSREDIR_PATH" ]; then
+        warn_log "----------------------------------------------------------------"
+        warn_log "⚠️  DEEP REPAIR: Language Server is 32-bit but 32-bit bridge is missing."
+        warn_log "Please copy-paste this command to fix it manually:"
+        warn_log "sudo apt update && sudo apt install -y build-essential git gcc-arm-linux-gnueabihf"
+        warn_log "----------------------------------------------------------------"
+    fi
 elif [ $SKIPPED_COUNT -gt 0 ]; then
     echo ""
     echo "Already configured with $PROXY_ADDR (v$EXTENSION_VERSION)"
