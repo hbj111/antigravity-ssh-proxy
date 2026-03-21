@@ -569,12 +569,28 @@ async function activateRemote(context: vscode.ExtensionContext) {
 
 	// Remote commands
 	context.subscriptions.push(
-		vscode.commands.registerCommand('antigravity-ssh-proxy.setup', () => {
+		vscode.commands.registerCommand('antigravity-ssh-proxy.setup', async () => {
 			const cfg = vscode.workspace.getConfiguration('antigravity-ssh-proxy');
 			const type = cfg.get<string>('proxyType', 'http');
 			const terminal = vscode.window.createTerminal('Antigravity Setup');
 			terminal.show();
+			
+			const packageJsonPath = path.join(extensionPath, 'package.json');
+			let version = 'unknown';
+			try {
+				const content = await fs.readFile(packageJsonPath, 'utf-8');
+				version = JSON.parse(content).version || 'unknown';
+			} catch (e) {}
+
 			const script = generateSetupScript(remoteHost, remotePort, type, extensionPath);
+			
+			// Export variables then run script
+			terminal.sendText(`export PROXY_HOST="${remoteHost}"`);
+			terminal.sendText(`export PROXY_PORT="${remotePort}"`);
+			terminal.sendText(`export PROXY_TYPE="${type}"`);
+			terminal.sendText(`export EXTENSION_PATH="${extensionPath}"`);
+			terminal.sendText(`export EXTENSION_VERSION="${version}"`);
+			
 			terminal.sendText(`cat > /tmp/ag_setup.sh << 'EOF'\n${script}\nEOF`);
 			terminal.sendText('bash /tmp/ag_setup.sh');
 		}),
@@ -618,7 +634,7 @@ async function activateRemote(context: vscode.ExtensionContext) {
 			if (selection === '确定 (Confirm)') {
 				const terminal = vscode.window.createTerminal('Antigravity Force 64-bit');
 				terminal.show();
-				terminal.sendText('rm -rf ~/.antigravity-server/bin/language_server_linux');
+				terminal.sendText('rm -rf ~/.antigravity-server/bin/*/extensions/antigravity/bin/language_server_linux*');
 				terminal.sendText('echo "================================================================"');
 				terminal.sendText('echo "✅ 已删除 32 位语言服务。现在请重新加载窗口，"');
 				terminal.sendText('echo "Antigravity 将自动下载正确的 64 位版本。"');

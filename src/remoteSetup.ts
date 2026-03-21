@@ -8,6 +8,15 @@ export function generateSetupScript(proxyHost: string, proxyPort: number, proxyT
     // Replace placeholders
     script = script.replace(/__PROXY_HOST__/g, proxyHost);
     script = script.replace(/__PROXY_PORT__/g, String(proxyPort));
+    script = script.replace(/__PROXY_TYPE__/g, proxyType);
+
+    // Read version from package.json for the script
+    let version = 'unknown';
+    try {
+        const pkg = JSON.parse(fs.readFileSync(path.join(extensionPath, 'package.json'), 'utf-8'));
+        version = pkg.version || 'unknown';
+    } catch (e) {}
+    script = script.replace(/__EXTENSION_VERSION_PLACEHOLDER__/g, version);
 
     return script;
 }
