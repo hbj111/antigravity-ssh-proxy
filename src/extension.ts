@@ -277,11 +277,20 @@ export async function activate(context: vscode.ExtensionContext) {
 		try {
 			const { stdout: uname } = await execAsync('uname -m');
 			const { stdout: bitness } = await execAsync('getconf LONG_BIT');
-			const { stdout: fileOutput } = await execAsync('file /bin/ls');
-			log(`[SYSTEM DIAG] uname -m: ${uname.trim()}`);
-			log(`[SYSTEM DIAG] getconf LONG_BIT: ${bitness.trim()}`);
-			log(`[SYSTEM DIAG] Node.js process.arch: ${process.arch}`);
-			log(`[SYSTEM DIAG] file /bin/ls: ${fileOutput.trim()}`);
+			const kernelArch = uname.trim();
+			const nodeArch = process.arch;
+			
+			log(`[SYSTEM DIAG] Kernel: ${kernelArch}, Node.js Arch: ${nodeArch}`);
+			
+			if (nodeArch === 'arm' && kernelArch === 'aarch64') {
+				const alertMsg = '⚠️ 检测到架构严重不匹配：您的内核是 64 位，但 VS Code 远程服务是 32 位。这会导致 Antigravity 下载错误的 32 位版本并引发登录失败。';
+				log(`[CRITICAL] Architecture Mismatch Detected: ${alertMsg}`);
+				vscode.window.showErrorMessage(alertMsg, { modal: true }, '如何修复？').then(selection => {
+					if (selection === '如何修复？') {
+						vscode.commands.executeCommand('antigravity-ssh-proxy.diagnose');
+					}
+				});
+			}
 		} catch (e) {
 			log(`[SYSTEM DIAG] Error: ${e}`);
 		}
