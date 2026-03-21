@@ -230,7 +230,7 @@ check_needs_update() {
 # Find Language Servers
 # ============================================================================
 echo "[SEARCH] Looking for language servers..."
-TARGETS=$(find "$HOME/.antigravity-server/bin" -path "*/extensions/antigravity/bin/language_server_linux_*" -type f 2>/dev/null | grep -v ".bak$")
+TARGETS=$(find "$HOME/.antigravity-server/bin" -maxdepth 6 -name "language_server_linux*" -type f 2>/dev/null | grep -v ".bak$")
 
 if [ -z "$TARGETS" ]; then
     error_log "No language servers found!"
