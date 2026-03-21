@@ -503,8 +503,30 @@ async function activateRemote(context: vscode.ExtensionContext) {
 	try {
 		await ensureMgraftcpExecutable(extensionPath);
 		console.log('[ATP] Binaries checked.');
-		await runSetupScriptSilently(remoteHost, remotePort, proxyType, extensionPath);
-		console.log('[ATP] Setup script finished.');
+		
+		// Wait for Antigravity's LS binary to be downloaded by the server
+		// We avoid running setup immediately to prevent "multiple instance" or "empty folder" issues
+		const findBinInDir = async () => {
+			try {
+				const { stdout } = await execAsync(`find "$HOME/.antigravity-server/bin" -maxdepth 6 -name "language_server_linux*" -type f 2>/dev/null`);
+				return stdout.trim().length > 0;
+			} catch { return false; }
+		};
+
+		if (!await findBinInDir()) {
+			log('Antigravity binaries not found yet. Waiting for download...');
+			// Don't block activation, but don't run setup either
+			setTimeout(async () => {
+				if (await findBinInDir()) {
+					log('Antigravity binaries finally appeared! Running initial setup...');
+					await runSetupScriptSilently(remoteHost, remotePort, proxyType, extensionPath);
+				}
+			}, 30000); // Wait 30s as a fallback
+		} else {
+			await runSetupScriptSilently(remoteHost, remotePort, proxyType, extensionPath);
+		}
+		
+		console.log('[ATP] activateRemote - Setup sequence checks initiated.');
 	} catch (err) {
 		log(`activateRemote setup error: ${err}`);
 	}

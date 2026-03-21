@@ -233,8 +233,9 @@ echo "[SEARCH] Looking for language servers..."
 TARGETS=$(find "$HOME/.antigravity-server/bin" -maxdepth 6 -name "language_server_linux*" -type f 2>/dev/null | grep -v ".bak$")
 
 if [ -z "$TARGETS" ]; then
-    error_log "No language servers found!"
-    exit 1
+    info_log "No language servers found yet. This is normal if they are still downloading."
+    info_log "Please wait a few moments and try 'Antigravity SSH Proxy: Setup Remote Environment' again."
+    exit 0
 fi
 
 TARGET_COUNT=$(echo "$TARGETS" | wc -l)
