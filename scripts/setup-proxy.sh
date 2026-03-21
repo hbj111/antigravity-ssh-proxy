@@ -103,8 +103,8 @@ if [ -n "$LS_BIN" ] && [ -f "$LS_BIN" ]; then
         # Verify if system can run 32-bit
         if [ "$ARCH" = "aarch64" ] && ! dpkg --get-selections | grep -q "libc6:armhf"; then
              warn_log "================================================================"
-             warn_log "⚠️  您的系统缺少 32 位运行库 libc6:armhf，无法运行代理工具。"
-             warn_log "请执行以下命令开启 32 位支持："
+             warn_log "MISSING 32-bit RUNTIME: libc6:armhf is required for this proxy."
+             warn_log "Please run the following command to enable it:"
              warn_log "sudo dpkg --add-architecture armhf && sudo apt update && sudo apt install -y libc6:armhf"
              warn_log "================================================================"
         fi
@@ -553,10 +553,10 @@ echo "  Proxy Address: $PROXY_ADDR"
 echo "  Proxy Type: $PROXY_TYPE"
 echo "----------------------------------------"
 if [ $CONFIGURED_COUNT -gt 0 ]; then
-    echo "  ✅ Configured: $CONFIGURED_COUNT wrapper(s) created/updated"
+    echo "  [OK] Configured: $CONFIGURED_COUNT wrapper(s) created/updated"
 fi
 if [ $SKIPPED_COUNT -gt 0 ]; then
-    echo "  ⏭️  Skipped: $SKIPPED_COUNT wrapper(s) already up-to-date"
+    echo "  [SKIP] Skipped: $SKIPPED_COUNT wrapper(s) already up-to-date"
 fi
 echo "========================================"
 
@@ -566,7 +566,7 @@ if [ $CONFIGURED_COUNT -gt 0 ]; then
     echo "Note: Reload window to apply changes to language server."
     if [ "$TARGET_IS_32BIT" = "1" ] && [ -z "$DNSREDIR_PATH" ]; then
         warn_log "----------------------------------------------------------------"
-        warn_log "⚠️  DEEP REPAIR: Language Server is 32-bit but 32-bit bridge is missing."
+        warn_log "DEEP REPAIR: Language Server is 32-bit but 32-bit bridge is missing."
         warn_log "Please copy-paste this command to fix it manually:"
         warn_log "sudo apt update && sudo apt install -y build-essential git gcc-arm-linux-gnueabihf"
         warn_log "----------------------------------------------------------------"
