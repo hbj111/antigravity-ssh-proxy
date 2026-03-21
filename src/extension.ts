@@ -518,15 +518,17 @@ async function activateRemote(context: vscode.ExtensionContext) {
 		const hasMismatch = diagnosticResult?.checks.some((c: any) => c.id === 'ls-wrapper' && c.status === 'warning' && c.message?.includes('Architecture mismatch'));
 		if (hasMismatch) {
 			const selection = await vscode.window.showWarningMessage(
-				'检测到架构不匹配：您的 Language Server 是 32 位，但系统缺少 32 位兼容库。需要进行深度修复。',
+				'检测到架构不匹配：您的系统是 64 位，但 Antigravity 运行的是 32 位版本。这会导致登录失败。',
 				{ modal: true },
-				'立即修复 (Repair Now)',
-				'查看详情 (View Details)',
-				'稍后 (Later)'
+				'升级到 64 位 (推荐)',
+				'尝试修复 32 位',
+				'查看详情'
 			);
-			if (selection === '立即修复 (Repair Now)') {
+			if (selection === '升级到 64 位 (推荐)') {
+				vscode.commands.executeCommand('antigravity-ssh-proxy.force64bit');
+			} else if (selection === '尝试修复 32 位') {
 				vscode.commands.executeCommand('antigravity-ssh-proxy.repairEnvironment');
-			} else if (selection === '查看详情 (View Details)') {
+			} else if (selection === '查看详情') {
 				vscode.commands.executeCommand('antigravity-ssh-proxy.diagnose');
 			}
 		}
@@ -582,13 +584,35 @@ async function activateRemote(context: vscode.ExtensionContext) {
 			terminal.sendText('sudo dpkg --add-architecture armhf && sudo apt update && sudo apt install -y libc6:armhf build-essential git gcc-arm-linux-gnueabihf');
 			// 2. Trigger setup once environment is ready
 			terminal.sendText('echo "================================================================"');
-			terminal.sendText('echo "✅ 32 位环境补丁已安装。正在为您自动构建并配置代理桥接软件..."');
+			terminal.sendText('echo "✅ 32 位运行环境补丁已启动。"');
+			terminal.sendText('echo "如果您有网络连接，插件将尝试自动为您构建 32 位代理桥接工具。"');
 			terminal.sendText('echo "================================================================"');
 			
 			// Give some time for the terminal command to start
 			setTimeout(() => {
 				vscode.commands.executeCommand('antigravity-ssh-proxy.setup');
 			}, 3000);
+		}),
+
+		vscode.commands.registerCommand('antigravity-ssh-proxy.force64bit', async () => {
+			const selection = await vscode.window.showWarningMessage(
+				'此操作将删除当前的 32 位语言服务并强制 Antigravity 重新下载 64 位版本。确定继续吗？',
+				{ modal: true },
+				'确定 (Confirm)'
+			);
+			if (selection === '确定 (Confirm)') {
+				const terminal = vscode.window.createTerminal('Antigravity Force 64-bit');
+				terminal.show();
+				terminal.sendText('rm -rf ~/.antigravity-server/bin/language_server_linux');
+				terminal.sendText('echo "================================================================"');
+				terminal.sendText('echo "✅ 已删除 32 位语言服务。现在请重新加载窗口，"');
+				terminal.sendText('echo "Antigravity 将自动下载正确的 64 位版本。"');
+				terminal.sendText('echo "================================================================"');
+				
+				setTimeout(() => {
+					vscode.commands.executeCommand('workbench.action.reloadWindow');
+				}, 5000);
+			}
 		})
 	);
 
