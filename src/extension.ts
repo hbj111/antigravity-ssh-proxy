@@ -613,10 +613,12 @@ async function activateRemote(context: vscode.ExtensionContext) {
 			terminal.show();
 			// 1. Install dependencies
 			terminal.sendText('sudo dpkg --add-architecture armhf && sudo apt update && sudo apt install -y libc6:armhf build-essential git gcc-arm-linux-gnueabihf');
-			// 2. Trigger setup once environment is ready
+			// 2. Clear old LS (Force refresh)
+			terminal.sendText('rm -rf ~/.antigravity-server/bin/*/extensions/antigravity/bin/language_server_linux*');
+			// 3. Trigger setup once environment is ready
 			terminal.sendText('echo "================================================================"');
-			terminal.sendText('echo "✅ 32 位运行环境补丁已启动。"');
-			terminal.sendText('echo "如果您有网络连接，插件将尝试自动为您构建 32 位代理桥接工具。"');
+			terminal.sendText('echo "✅ 32 位底层环境补丁已启动。"');
+			terminal.sendText('echo "我们将尝试在您的 RK3588 上直接构建适用的 32 位代理桥接。"');
 			terminal.sendText('echo "================================================================"');
 			
 			// Give some time for the terminal command to start

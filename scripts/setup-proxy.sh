@@ -238,8 +238,8 @@ if [ -z "$TARGETS" ]; then
 fi
 
 TARGET_COUNT=$(echo "$TARGETS" | wc -l)
-info_log "Found $TARGET_COUNT language server(s)"
-echo ""
+info_log "Found $TARGET_COUNT targets"
+echo
 
 # ============================================================================
 # Process Each Language Server
@@ -294,7 +294,7 @@ while IFS= read -r TARGET; do
         fi
     else
         # Already up-to-date
-        info_log "Already up-to-date (v$EXTENSION_VERSION, $PROXY_ADDR, $PROXY_TYPE)"
+        info_log "Already up-to-date v$EXTENSION_VERSION"
         SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
         continue
     fi
