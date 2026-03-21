@@ -103,7 +103,7 @@ if [ -n "$LS_BIN" ] && [ -f "$LS_BIN" ]; then
         # Verify if system can run 32-bit
         if [ "$ARCH" = "aarch64" ] && ! dpkg --get-selections | grep -q "libc6:armhf"; then
              warn_log "================================================================"
-             warn_log "⚠️  您的系统缺少 32 位运行库 (libc6:armhf)，无法运行代理工具。"
+             warn_log "⚠️  您的系统缺少 32 位运行库 libc6:armhf，无法运行代理工具。"
              warn_log "请执行以下命令开启 32 位支持："
              warn_log "sudo dpkg --add-architecture armhf && sudo apt update && sudo apt install -y libc6:armhf"
              warn_log "================================================================"
@@ -267,7 +267,7 @@ while IFS= read -r TARGET; do
         if [[ "$TARGET_ELF_ARCH" == *"32-bit"* ]]; then
             warn_log "Architecture mismatch: 32-bit Language Server on aarch64 system."
             warn_log "You MUST use 32-bit mgraftcp and libdnsredir for this to work."
-            warn_log "I will search for 32-bit binaries (linux-arm)..."
+            warn_log "I will search for 32-bit binaries linux-arm..."
             
             # Switch expected tools for THIS target
             TARGET_BINARY="mgraftcp-fakedns-linux-arm"
@@ -438,7 +438,7 @@ build_32bit_binaries() {
         return 1
     fi
     
-    info_log "Compiling mgraftcp (32-bit)..."
+    info_log "Compiling mgraftcp 32-bit..."
     # Try to build 32-bit. On ARM64 Debian/Ubuntu, this often works with -m32 or just using the right toolchain
     if command -v arm-linux-gnueabihf-gcc &>/dev/null; then
         make CROSS_COMPILE=arm-linux-gnueabihf-
@@ -454,7 +454,7 @@ build_32bit_binaries() {
         info_log "✅ Successfully built mgraftcp-fakedns-linux-arm"
     fi
     
-    # Build libdnsredir.so (32-bit)
+    # Build libdnsredir.so 32-bit
     cd local/dnsredir || return 1
     local gcc_cmd="gcc"
     [ -n "$(command -v arm-linux-gnueabihf-gcc)" ] && gcc_cmd="arm-linux-gnueabihf-gcc"
