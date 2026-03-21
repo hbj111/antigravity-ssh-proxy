@@ -229,8 +229,9 @@ check_needs_update() {
 # ============================================================================
 # Find Language Servers
 # ============================================================================
-echo "[SEARCH] Looking for language servers..."
-TARGETS=$(find "$HOME/.antigravity-server/bin" -maxdepth 6 -name "language_server_linux*" -type f 2>/dev/null | grep -v ".bak$")
+echo "[SEARCH] Looking for language servers (this may take a few seconds)..."
+# Use timeout to prevent hangs on slow filesystems, and reduce depth to 5
+TARGETS=$(timeout 15s find "$HOME/.antigravity-server/bin" -maxdepth 5 -name "language_server_linux*" -type f 2>/dev/null | grep -v ".bak$") || true
 
 if [ -z "$TARGETS" ]; then
     info_log "No language servers found yet. This is normal if they are still downloading."
@@ -253,8 +254,8 @@ SKIPPED_COUNT=0
 if [ "$TARGET_IS_32BIT" -eq 1 ]; then
     info_log "Host mismatch detected. Will ensure both base and _arm wrappers exist."
     
-    # Locate version directories properly
-    VERSION_DIRS=$(find "$HOME/.antigravity-server/bin" -maxdepth 2 -type d -name "1.*" 2>/dev/null)
+    # Locate version directories properly using timeout
+    VERSION_DIRS=$(timeout 10s find "$HOME/.antigravity-server/bin" -maxdepth 2 -type d -name "1.*" 2>/dev/null)
     for V_DIR in $VERSION_DIRS; do
         LS_DIR="$V_DIR/extensions/antigravity/bin"
         if [ -d "$LS_DIR" ]; then
