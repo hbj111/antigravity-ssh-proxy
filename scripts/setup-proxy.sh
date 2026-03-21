@@ -287,7 +287,7 @@ find_binaries() {
         actual_elf_arch=$(file -b "$target_binary" 2>/dev/null || echo "")
     fi
 
-    if [[ "$target_binary" == *"_arm" ]]; then
+    if [[ "$target_binary" == *"_arm"* ]]; then
         if [[ "$actual_elf_arch" == *"aarch64"* ]] || [[ "$actual_elf_arch" == *"ARM aarch64"* ]]; then
             # Misnamed 64-bit binary
             binary_name="mgraftcp-fakedns-linux-arm64"
@@ -297,7 +297,7 @@ find_binaries() {
             binary_name="mgraftcp-fakedns-linux-arm"
             lib_name="libdnsredir-linux-arm.so"
         fi
-    elif [[ "$target_binary" == *"_x64" ]] || [[ "$target_binary" == *"_amd64" ]]; then
+    elif [[ "$target_binary" == *"_x64"* ]] || [[ "$target_binary" == *"_amd64"* ]]; then
         binary_name="mgraftcp-fakedns-linux-amd64"
         lib_name="libdnsredir-linux-amd64.so"
     else

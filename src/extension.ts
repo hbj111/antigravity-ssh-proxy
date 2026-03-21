@@ -254,7 +254,8 @@ async function getSSHConfigStatus(): Promise<{ enabled: boolean; port?: number }
 	return { enabled: false };
 }
 
-export function activate(context: vscode.ExtensionContext) {
+export async function activate(context: vscode.ExtensionContext) {
+	console.log('[ATP] Extension activating...', { extensionKind: context.extension.extensionKind });
 	// 创建专用的 Output Channel
 	outputChannel = vscode.window.createOutputChannel('Antigravity SSH Proxy');
 	context.subscriptions.push(outputChannel);
@@ -459,8 +460,15 @@ async function activateRemote(context: vscode.ExtensionContext) {
 	// Use extensionUri.fsPath for correct remote path resolution
 	const extensionPath = context.extensionUri.fsPath;
 
-	// Ensure mgraftcp binary has execute permission before setup
-	await ensureMgraftcpExecutable(extensionPath);
+	console.log('[ATP] activateRemote starting...');
+	try {
+		await ensureMgraftcpExecutable(extensionPath);
+		console.log('[ATP] Binaries checked.');
+		await runSetupScriptSilently(remoteHost, remotePort, proxyType, extensionPath);
+		console.log('[ATP] Setup script finished.');
+	} catch (err) {
+		log(`activateRemote setup error: ${err}`);
+	}
 
 	// 设置配置变更回调（用于面板中修改配置时触发）
 	statusManager.setConfigChangeCallback(async () => {
