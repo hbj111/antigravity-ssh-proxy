@@ -380,36 +380,48 @@ find_binaries() {
         actual_elf_arch=$(file -b "$target_binary" 2>/dev/null || echo "")
     fi
 
-    if [[ "$target_binary" == *"_arm"* ]]; then
-        if [[ "$actual_elf_arch" == *"aarch64"* ]] || [[ "$actual_elf_arch" == *"ARM aarch64"* ]]; then
-            # Misnamed 64-bit binary
-            binary_name="mgraftcp-fakedns-linux-arm64"
-            lib_name="libdnsredir-linux-arm64.so"
-        else
-            # Assume 32-bit arm
-            binary_name="mgraftcp-fakedns-linux-arm"
-            lib_name="libdnsredir-linux-arm.so"
-        fi
-    elif [[ "$target_binary" == *"_x64"* ]] || [[ "$target_binary" == *"_amd64"* ]]; then
-        binary_name="mgraftcp-fakedns-linux-amd64"
-        lib_name="libdnsredir-linux-amd64.so"
-    else
-        # Fallback to system architecture
-        case "$arch" in
-            x86_64|amd64) 
-                binary_name="mgraftcp-fakedns-linux-amd64"
-                lib_name="libdnsredir-linux-amd64.so"
-                ;;
-            aarch64|arm64) 
+        # NEW: Check the actual ELF architecture of the target binary
+        actual_elf_arch=$(file -b "$target_binary" 2>/dev/null || echo "")
+        
+        if [[ "$actual_elf_arch" == *"x86-64"* ]] || [[ "$target_binary" == *"_x64"* ]] || [[ "$target_binary" == *"_amd64"* ]]; then
+            binary_name="mgraftcp-fakedns-linux-amd64"
+            lib_name="libdnsredir-linux-amd64.so"
+            
+            # CRITICAL: If we are on ARM64 but the binary is x64, we can't run the fakedns library
+            if [ "$arch" != "x86_64" ] && [ "$arch" != "amd64" ]; then
+                warn_log "Detected x64 binary on non-x64 host ($arch). Proxy preloading might fail."
+                # As a last resort, if we are on aarch64, try to use the arm64 fakedns lib 
+                # (though the binary itself will likely crash anyway)
+                if [ "$arch" = "aarch64" ]; then
+                     binary_name="mgraftcp-fakedns-linux-arm64"
+                     lib_name="libdnsredir-linux-arm64.so"
+                fi
+            fi
+        elif [[ "$target_binary" == *"_arm"* ]] || [[ "$actual_elf_arch" == *"ARM"* ]] || [[ "$actual_elf_arch" == *"aarch64"* ]]; then
+            if [[ "$actual_elf_arch" == *"aarch64"* ]] || [[ "$actual_elf_arch" == *"ARM aarch64"* ]]; then
                 binary_name="mgraftcp-fakedns-linux-arm64"
                 lib_name="libdnsredir-linux-arm64.so"
-                ;;
-            armv7l|armv8l|armhf|arm)
+            else
                 binary_name="mgraftcp-fakedns-linux-arm"
                 lib_name="libdnsredir-linux-arm.so"
-                ;;
-        esac
-    fi
+            fi
+        else
+            # Fallback to system architecture
+            case "$arch" in
+                x86_64|amd64) 
+                    binary_name="mgraftcp-fakedns-linux-amd64"
+                    lib_name="libdnsredir-linux-amd64.so"
+                    ;;
+                aarch64|arm64) 
+                    binary_name="mgraftcp-fakedns-linux-arm64"
+                    lib_name="libdnsredir-linux-arm64.so"
+                    ;;
+                *)
+                    binary_name="mgraftcp-fakedns-linux-arm"
+                    lib_name="libdnsredir-linux-arm.so"
+                    ;;
+            esac
+        fi
 
     # Final check: If the selected binary_name doesn't exist but we are on aarch64, 
     # and we were looking for 'arm' (32-bit), try 'arm64' as a last resort.

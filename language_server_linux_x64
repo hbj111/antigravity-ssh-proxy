@@ -1,0 +1,79 @@
+#!/bin/bash
+# ============================================================================
+# Antigravity SSH Proxy - Language Server Wrapper
+# ============================================================================
+# WRAPPER_VERSION="0.0.15"
+# GENERATED="2026-03-20T16:19:36+08:00"
+# ============================================================================
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_NAME="$(basename "${BASH_SOURCE[0]}")"
+
+# Proxy configuration - can be updated without replacing the wrapper
+PROXY_ADDR="127.0.0.1:2499"
+PROXY_TYPE="http"
+EXTENSION_BIN_PATH="/home/hbj111/.antigravity-server/extensions/dinobot22.antigravity-ssh-proxy-0.0.15-universal/resources/bin"
+
+# Dynamically find mgraftcp-fakedns and libdnsredir at runtime
+find_binaries() {
+    local arch=$(uname -m)
+    local binary_name=""
+    local lib_name=""
+    case "$arch" in
+        x86_64|amd64) 
+            binary_name="mgraftcp-fakedns-linux-amd64"
+            lib_name="libdnsredir-linux-amd64.so"
+            ;;
+        aarch64|arm64) 
+            binary_name="mgraftcp-fakedns-linux-arm64"
+            lib_name="libdnsredir-linux-arm64.so"
+            ;;
+        *) return 1 ;;
+    esac
+    
+    # Method 1: Use exact extension path if provided (preferred)
+    if [ -n "$EXTENSION_BIN_PATH" ] && [ -d "$EXTENSION_BIN_PATH" ]; then
+        if [ -f "$EXTENSION_BIN_PATH/$binary_name" ]; then
+            echo "$EXTENSION_BIN_PATH/$binary_name"
+            if [ -f "$EXTENSION_BIN_PATH/$lib_name" ]; then
+                echo "$EXTENSION_BIN_PATH/$lib_name"
+            fi
+            return 0
+        fi
+    fi
+    
+    # Method 2: Fallback - search in all versions (sorted by version, newest first)
+    for dir in $(ls -d "$HOME/.antigravity-server/extensions/"*antigravity-ssh-proxy*/resources/bin 2>/dev/null | sort -t'-' -k3 -V -r); do
+        if [ -f "$dir/$binary_name" ]; then
+            echo "$dir/$binary_name"
+            if [ -f "$dir/$lib_name" ]; then
+                echo "$dir/$lib_name"
+            fi
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Get both paths
+BINARIES=$(find_binaries)
+MGRAFTCP_PATH=$(echo "$BINARIES" | head -1)
+DNSREDIR_PATH=$(echo "$BINARIES" | tail -1)
+
+if [ -z "$MGRAFTCP_PATH" ] || [ ! -f "$MGRAFTCP_PATH" ]; then
+    # Fallback: run without proxy if mgraftcp not found
+    exec "$SCRIPT_DIR/$SCRIPT_NAME.bak" "$@"
+fi
+
+chmod +x "$MGRAFTCP_PATH" 2>/dev/null || true
+
+# Force Go programs to use cgo DNS resolver (required for LD_PRELOAD to work)
+export GODEBUG="${GODEBUG:+$GODEBUG,}netdns=cgo"
+
+# Select proxy argument based on proxy type
+if [ "$PROXY_TYPE" = "socks5" ]; then
+    exec "$MGRAFTCP_PATH" --socks5 "$PROXY_ADDR" "$SCRIPT_DIR/$SCRIPT_NAME.bak" "$@"
+else
+    # Default to http proxy
+    exec "$MGRAFTCP_PATH" --http_proxy "$PROXY_ADDR" "$SCRIPT_DIR/$SCRIPT_NAME.bak" "$@"
+fi
