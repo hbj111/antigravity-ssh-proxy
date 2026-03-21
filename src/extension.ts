@@ -514,16 +514,26 @@ async function activateRemote(context: vscode.ExtensionContext) {
 		};
 
 		if (!await findBinInDir()) {
-			log('Antigravity binaries not found yet. Waiting for download...');
-			// Don't block activation, but don't run setup either
+			const errorMsg = '⚠️ 无法启动：未能在远程发现 Antigravity 核心二进制文件。这通常是因为您的 VS Code 宿主是 32 位的，导致核心服务下载失败。';
+			log(errorMsg);
+			vscode.window.showWarningMessage(errorMsg, '查看深度修复指南').then(selection => {
+				if (selection === '查看深度修复指南') {
+					vscode.commands.executeCommand('antigravity-ssh-proxy.diagnose');
+				}
+			});
+			
+			// Try a delayed check anyway
 			setTimeout(async () => {
 				if (await findBinInDir()) {
 					log('Antigravity binaries finally appeared! Running initial setup...');
 					await runSetupScriptSilently(remoteHost, remotePort, proxyType, extensionPath);
+					promptReloadWindow('Antigravity 核心二进制已找到并完成配置，请重载窗口以生效。');
 				}
-			}, 30000); // Wait 30s as a fallback
+			}, 60000); 
 		} else {
 			await runSetupScriptSilently(remoteHost, remotePort, proxyType, extensionPath);
+			// Show success prompt to ensure user knows to reload
+			promptReloadWindow('Antigravity 环境配置成功，请重载窗口以应用代理设置。');
 		}
 		
 		console.log('[ATP] activateRemote - Setup sequence checks initiated.');
@@ -595,6 +605,7 @@ async function activateRemote(context: vscode.ExtensionContext) {
 
 	// Remote commands
 	context.subscriptions.push(
+		registerDeepCleanCommand(context),
 		vscode.commands.registerCommand('antigravity-ssh-proxy.setup', async () => {
 			const cfg = vscode.workspace.getConfiguration('antigravity-ssh-proxy');
 			const type = cfg.get<string>('proxyType', 'http');
@@ -1060,6 +1071,30 @@ async function runSetupScriptSilently(proxyHost: string, proxyPort: number, prox
 		if (err.stderr) { log(`stderr: ${err.stderr}`); }
 		return false;
 	}
+}
+
+function registerDeepCleanCommand(context: vscode.ExtensionContext): vscode.Disposable {
+	return vscode.commands.registerCommand('antigravity-ssh-proxy.deepClean', async () => {
+		const selection = await vscode.window.showWarningMessage(
+			'该操作将彻底删除远程的 ~/.antigravity-server 目录并清理所有配置。是否继续？',
+			{ modal: true },
+			'确定清理'
+		);
+		
+		if (selection === '确定清理') {
+			try {
+				log('Starting Deep Clean...');
+				// Run cleanup commands
+				await execAsync('rm -rf ~/.antigravity-server');
+				await execAsync('rm -f /tmp/ag_setup.sh');
+				
+				vscode.window.showInformationMessage('清理完成！请重新载入窗口，并耐心等待 Antigravity 自动重新下载（可能需要 1-2 分钟）。');
+				vscode.commands.executeCommand('workbench.action.reloadWindow');
+			} catch (err) {
+				vscode.window.showErrorMessage(`清理失败: ${err}`);
+			}
+		}
+	});
 }
 
 export async function deactivate() {

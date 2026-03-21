@@ -383,8 +383,8 @@ async function checkLanguageServerWrapper(extensionPath?: string): Promise<Diagn
             check.suggestion = 'Please install "Antigravity SSH Proxy" extension on the remote server: Open Extensions sidebar (Ctrl+Shift+X) → Search "Antigravity SSH Proxy" → Click "Install in SSH: <host>" button.';
         } else {
             check.status = 'warning';
-            check.message = `Could not verify wrapper: ${error}`;
-            check.suggestion = 'Run "Setup Remote Environment" command if language server proxy is needed.';
+            check.message = `Language server binary not found. (Expected: language_server_linux or language_server_linux_arm)`;
+            check.suggestion = 'Wait 30s for Antigravity to download it, then Run "Setup Remote Environment".';
         }
     }
 
