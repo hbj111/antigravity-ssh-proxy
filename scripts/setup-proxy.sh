@@ -486,17 +486,17 @@ if [ -z "$MGRAFTCP_PATH" ] && [[ "$ARCH" == "aarch64" ]] && [[ "$TARGET_BINARY" 
     DNSREDIR_PATH=$(echo "$BINARIES" | sed -n '2p')
 fi
 
-if [ -z "$MGRAFTCP_PATH" ] || [ ! -f "$MGRAFTCP_PATH" ]; then
-    # Final fallback: use system mgraftcp if available
-    SYSTEM_MGRAFTCP=$(which mgraftcp 2>/dev/null || true)
-    if [ -n "$SYSTEM_MGRAFTCP" ]; then
-        MGRAFTCP_PATH="$SYSTEM_MGRAFTCP"
-        info_log "Using system mgraftcp as fallback"
-    else
-        warn_log "CRITICAL: mgraftcp binary NOT found and build failed."
-        exec "$SCRIPT_DIR/$SCRIPT_NAME.bak" "$@"
+    if [ -z "$MGRAFTCP_PATH" ] || [ ! -f "$MGRAFTCP_PATH" ]; then
+        # Final fallback: use system mgraftcp if available
+        SYSTEM_MGRAFTCP=$(which mgraftcp 2>/dev/null || true)
+        if [ -n "$SYSTEM_MGRAFTCP" ]; then
+            MGRAFTCP_PATH="$SYSTEM_MGRAFTCP"
+            info_log "Using system mgraftcp as fallback"
+        else
+            warn_log "CRITICAL: mgraftcp binary NOT found and build failed."
+            exec "$SCRIPT_DIR/$SCRIPT_NAME.bak" "$@"
+        fi
     fi
-fi
 
 chmod +x "$MGRAFTCP_PATH" 2>/dev/null || true
 
