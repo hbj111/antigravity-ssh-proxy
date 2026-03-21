@@ -248,6 +248,35 @@ echo
 CONFIGURED_COUNT=0
 SKIPPED_COUNT=0
 
+# SPECIAL: Target both base name and _arm suffix if we are in 32-bit host mode
+# This fixes the "binary not found: language_server_linux_arm" error
+if [ "$TARGET_IS_32BIT" -eq 1 ]; then
+    info_log "Host mismatch detected. Will ensure both base and _arm wrappers exist."
+    
+    # Locate version directories properly
+    VERSION_DIRS=$(find "$HOME/.antigravity-server/bin" -maxdepth 2 -type d -name "1.*" 2>/dev/null)
+    for V_DIR in $VERSION_DIRS; do
+        LS_DIR="$V_DIR/extensions/antigravity/bin"
+        if [ -d "$LS_DIR" ]; then
+             BASE_LS="$LS_DIR/language_server_linux"
+             ARM_LS="$LS_DIR/language_server_linux_arm"
+             
+             # Case 1: Base exists but ARM is missing (The Crash Loop cause)
+             if [ -f "$BASE_LS" ] && [ ! -f "$ARM_LS" ] && [ ! -f "${ARM_LS}.bak" ]; then
+                 info_log "Masking Binary: Linking $BASE_LS as $ARM_LS (for 32-bit Host compatibility)"
+                 # We don't link, we add it to TARGETS so the wrapper logic handles it
+                 TARGETS=$(echo -e "$TARGETS\n$ARM_LS")
+                 # Force create a fake file so 'find' or existence checks don't fail later
+                 # Wait, 'mv' later will fail if it doesn't exist.
+                 # Actually, we should just copy the base to arm if arm is missing.
+                 cp "$BASE_LS" "$ARM_LS"
+             fi
+        fi
+    done
+    # Refresh TARGETS to include any newly found/created arm binaries
+    TARGETS=$(find "$HOME/.antigravity-server/bin" -maxdepth 6 -name "language_server_linux*" -type f 2>/dev/null | grep -v ".bak$")
+fi
+
 echo "[PROCESS] Configuring language servers..."
 echo ""
 
