@@ -278,6 +278,22 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	log(`Activating... isLocal=${isRunningLocally()}`);
 
+	// Deep Architecture Diagnostic
+	if (!isRunningLocally()) {
+		try {
+			const { stdout: uname } = await execAsync('uname -m');
+			const { stdout: bitness } = await execAsync('getconf LONG_BIT');
+			const { stdout: nodeArch } = await execAsync('node -p "process.arch"');
+			const { stdout: fileOutput } = await execAsync('file /bin/ls');
+			log(`[SYSTEM DIAG] uname -m: ${uname.trim()}`);
+			log(`[SYSTEM DIAG] getconf LONG_BIT: ${bitness.trim()}`);
+			log(`[SYSTEM DIAG] Node.js process.arch: ${nodeArch.trim()}`);
+			log(`[SYSTEM DIAG] file /bin/ls: ${fileOutput.trim()}`);
+		} catch (e) {
+			log(`[SYSTEM DIAG] Error: ${e}`);
+		}
+	}
+
 	// 初始化状态管理器
 	statusManager = new StatusManager(isRunningLocally(), context);
 	context.subscriptions.push(statusManager);
