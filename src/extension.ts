@@ -514,10 +514,14 @@ async function activateRemote(context: vscode.ExtensionContext) {
 		};
 
 		if (!await findBinInDir()) {
-			const errorMsg = '⚠️ 无法启动：未能在远程发现 Antigravity 核心二进制文件。这通常是因为您的 VS Code 宿主是 32 位的，导致核心服务下载失败。';
+			const errorMsg = '⚠️ 无法启动：未能在远程发现 Antigravity 核心二进制文件。这通常是因为您的 VS Code 宿主是 32 位 (armhf) 的导致下载失败。';
 			log(errorMsg);
-			vscode.window.showWarningMessage(errorMsg, '查看深度修复指南').then(selection => {
-				if (selection === '查看深度修复指南') {
+			vscode.window.showWarningMessage(errorMsg, '尝试一键强修', '深层环境清理', '查看诊断').then(selection => {
+				if (selection === '尝试一键强修') {
+					vscode.commands.executeCommand('antigravity-ssh-proxy.setup');
+				} else if (selection === '深层环境清理') {
+					vscode.commands.executeCommand('antigravity-ssh-proxy.deepClean');
+				} else if (selection === '查看诊断') {
 					vscode.commands.executeCommand('antigravity-ssh-proxy.diagnose');
 				}
 			});
