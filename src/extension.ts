@@ -63,38 +63,32 @@ async function isMgraftcpRunning(): Promise<boolean> {
  */
 async function getLanguageServerProcess(): Promise<{ pid: number; isPersistent: boolean; isUsingProxy: boolean } | null> {
 	try {
-		const { stdout } = await execAsync('ps aux | grep language_server_linux | grep -v grep');
+		// Use pgrep if available for better reliability, otherwise fallback to ps
+		const cmd = 'ps aux | grep -E "language_server_linux|language_server_linux_arm" | grep -v grep';
+		const { stdout } = await execAsync(cmd);
 		const lines = stdout.trim().split('\n').filter(l => l.length > 0);
 		
-		// First pass: check if mgraftcp is wrapping the LS (indicates proxy is active)
 		const hasMgraftcpWrapper = lines.some(line => line.includes('mgraftcp'));
 		
-		// Second pass: find the actual LS process (not the mgraftcp line)
 		for (const line of lines) {
-			// Skip the mgraftcp wrapper line, we want the actual LS binary
 			if (line.includes('mgraftcp-fakedns')) {
 				continue;
 			}
 			
-			// Look for the actual language_server process (either direct or .bak)
 			if (line.includes('language_server_linux')) {
-				const parts = line.split(/\s+/);
+				const parts = line.split(/\s+/).filter(p => p.length > 0);
+				// Standard ps aux parts: USER PID %CPU %MEM VSZ RSS TTY STAT START TIME COMMAND
 				if (parts.length >= 2) {
 					const pid = parseInt(parts[1]);
-					const isPersistent = line.includes('--persistent_mode') || line.includes('persistent_mode');
-					
 					if (!isNaN(pid)) {
-						return { 
-							pid, 
-							isPersistent, 
-							isUsingProxy: hasMgraftcpWrapper 
-						};
+						const isPersistent = line.includes('persistent_mode');
+						return { pid, isPersistent, isUsingProxy: hasMgraftcpWrapper };
 					}
 				}
 			}
 		}
-	} catch {
-		// No process found
+	} catch (e) {
+		// Ignore
 	}
 	return null;
 }
@@ -297,9 +291,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	statusManager = new StatusManager(isRunningLocally(), context);
 	context.subscriptions.push(statusManager);
 	
-	// Force show icon immediately
+	// Force show icon immediately and keep it visible
 	log('Initial status bar item show');
-	statusManager.refreshStatus();
+	statusManager.updateStatusBar();
+	statusManager.showStatusPanel(); // Optional: show on first install? No, just keep icon.
 
 	// 初始化诊断面板
 	diagnosticPanel = new DiagnosticPanel(context);

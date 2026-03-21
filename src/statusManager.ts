@@ -591,7 +591,7 @@ export class StatusManager {
         }
     }
 
-    private updateStatusBar(): void {
+    public updateStatusBar(): void {
         const status = this.currentStatus;
         let tooltip: string;
 
@@ -616,9 +616,10 @@ export class StatusManager {
             }
         }
 
-        this.statusBarItem.text = '$(circle-large-filled) ATP';
+        this.statusBarItem.text = `$(globe) ATP${!this.isLocal && status.remoteProxyReachable ? ': ' + status.remoteProxyPort : ''}`;
         this.statusBarItem.tooltip = tooltip;
         this.statusBarItem.backgroundColor = undefined;
+        this.statusBarItem.show();
     }
 
     private checkPort(host: string, port: number): Promise<boolean> {
